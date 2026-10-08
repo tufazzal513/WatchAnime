@@ -46,6 +46,13 @@
         <style>@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }</style>
       </div>
     </div>
+    <link rel="stylesheet" crossorigin href="./assets/index.css">
+    <script type="module">
+      // On static hosting (like GitHub Pages root deployment), execute the compiled bundle
+      if (!window.__VITE_LOADED__) {
+        import('./assets/index.js').catch(() => {});
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
