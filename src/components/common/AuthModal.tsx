@@ -30,7 +30,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
 
     try {
       if (mode === 'login') {
-        await signInWithEmail(email, password);
+        await signInWithEmail(email.trim(), password);
         onClose();
       } else if (mode === 'register') {
         if (password !== confirmPassword) {
@@ -43,20 +43,38 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
           setLoading(false);
           return;
         }
-        await signUpWithEmail(email, password);
+        await signUpWithEmail(email.trim(), password);
         onClose();
       } else if (mode === 'forgot') {
-        await resetPassword(email);
-        setSuccess(t.auth.resetSuccess);
+        await resetPassword(email.trim());
+        setSuccess(t.auth.resetSuccess || 'Password reset link sent to your email.');
       }
     } catch (err: any) {
-      console.error(err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError('Invalid email or password');
-      } else if (err.code === 'auth/email-already-in-use') {
-        setError('Email is already registered. Please sign in.');
+      const code = err?.code || '';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/invalid-login-credentials'
+      ) {
+        setError('Incorrect email or password. If you do not have an account yet, please click "Sign Up" below.');
+      } else if (code === 'auth/email-already-in-use') {
+        setError('Email is already registered. Please sign in instead.');
+      } else if (code === 'auth/invalid-email') {
+        setError('Please enter a valid email address.');
+      } else if (code === 'auth/user-disabled') {
+        setError('This account has been disabled. Please contact support.');
+      } else if (code === 'auth/too-many-requests') {
+        setError('Too many failed attempts. Please wait a few moments or reset your password.');
+      } else if (code === 'auth/weak-password') {
+        setError('Password should be at least 6 characters long.');
+      } else if (code === 'auth/network-request-failed') {
+        setError('Network error. Please check your internet connection.');
+      } else if (code === 'auth/popup-closed-by-user') {
+        // Silently handled
       } else {
-        setError(err.message || 'Authentication error occurred');
+        const cleanMsg = err?.message ? err.message.replace(/^Firebase:\s*/, '').replace(/\(auth\/[a-z-]+\)\.?/i, '').trim() : '';
+        setError(cleanMsg || 'Authentication error occurred. Please try again.');
       }
     } finally {
       setLoading(false);
@@ -70,8 +88,12 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
       await signInWithGoogle();
       onClose();
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || 'Google sign in failed');
+      const code = err?.code || '';
+      if (code === 'auth/popup-closed-by-user') {
+        // Popup closed by user, don't show scary error
+      } else {
+        setError(err?.message || 'Google sign in failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -185,7 +207,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
                 {mode === 'login' && (
                   <button
                     type="button"
-                    onClick={() => setMode('forgot')}
+                    onClick={() => {
+                      setMode('forgot');
+                      setError(null);
+                      setSuccess(null);
+                    }}
                     className="text-xs text-red-400 hover:text-red-300 cursor-pointer"
                   >
                     {t.auth.forgotPassword}
@@ -241,7 +267,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {t.auth.dontHaveAccount}{' '}
               <button
                 type="button"
-                onClick={() => setMode('register')}
+                onClick={() => {
+                  setMode('register');
+                  setError(null);
+                  setSuccess(null);
+                }}
                 className="text-red-400 font-bold hover:underline cursor-pointer"
               >
                 {t.nav.register}
@@ -252,7 +282,11 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
               {t.auth.alreadyHaveAccount}{' '}
               <button
                 type="button"
-                onClick={() => setMode('login')}
+                onClick={() => {
+                  setMode('login');
+                  setError(null);
+                  setSuccess(null);
+                }}
                 className="text-red-400 font-bold hover:underline cursor-pointer"
               >
                 {t.nav.login}

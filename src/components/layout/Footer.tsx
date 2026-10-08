@@ -1,140 +1,110 @@
 import React from 'react';
-import { Shield, Film, Heart } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 
 interface FooterProps {
   onSelectTab: (tab: string) => void;
   onOpenRequests: () => void;
+  siteSettings?: any;
 }
 
-export const Footer: React.FC<FooterProps> = ({ onSelectTab, onOpenRequests }) => {
+export const Footer: React.FC<FooterProps> = ({
+  onSelectTab,
+  onOpenRequests,
+  siteSettings,
+}) => {
   const { t } = useLanguage();
 
   return (
-    <footer className="bg-black text-neutral-400 border-t border-white/5 pt-12 pb-24 md:pb-12 text-sm mt-16">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-8 mb-10">
-          <div>
-            <h4 className="text-white font-bold mb-4 tracking-wide text-xs uppercase">
-              Navigation
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <button
-                  onClick={() => onSelectTab('home')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.home}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('anime')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.anime}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('movies')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.movies}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('series')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.series}
-                </button>
-              </li>
-            </ul>
+    <footer className="bg-[#0a0a0a] text-neutral-500 border-t border-white/5 py-8 px-4 sm:px-6 text-xs mt-12 mb-16 md:mb-0">
+      <div className="max-w-4xl mx-auto flex flex-col items-center text-center space-y-4">
+        {/* Brand Logo */}
+        <div className="flex items-center space-x-2">
+          <div className="w-6 h-6 rounded bg-red-600 flex items-center justify-center font-black text-white text-xs shadow-md shadow-red-600/30">
+            W
           </div>
-
-          <div>
-            <h4 className="text-white font-bold mb-4 tracking-wide text-xs uppercase">
-              Community
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <button
-                  onClick={onOpenRequests}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.requests.title}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('my-list')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.myList}
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('history')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  {t.nav.history}
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-bold mb-4 tracking-wide text-xs uppercase">
-              Legal & Policy
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <button
-                  onClick={() => onSelectTab('dmca')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  DMCA / Copyright Notice
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('privacy')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  Privacy Policy
-                </button>
-              </li>
-              <li>
-                <button
-                  onClick={() => onSelectTab('terms')}
-                  className="hover:text-white transition-colors cursor-pointer"
-                >
-                  Terms of Service
-                </button>
-              </li>
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-bold mb-4 tracking-wide text-xs uppercase flex items-center space-x-1.5">
-              <Shield className="w-4 h-4 text-red-500" />
-              <span>Disclaimer</span>
-            </h4>
-            <p className="text-xs text-neutral-500 leading-relaxed">
-              WatchAnime (watchanime.cyou) does not host any media files directly on its servers. All videos and multimedia content are provided by non-affiliated, authorized third parties.
-            </p>
-          </div>
+          <span className="font-black text-sm tracking-wider text-white uppercase">
+            WATCH<span className="text-red-600">ANIME</span>
+          </span>
         </div>
 
-        <div className="pt-8 border-t border-neutral-900 flex flex-col md:flex-row items-center justify-between text-xs text-neutral-500 gap-4">
-          <p>© 2026 WatchAnime (watchanime.cyou). All rights reserved.</p>
-          <div className="flex items-center space-x-2">
-            <span>Optimized for Mobile & Desktop Streaming</span>
-          </div>
+        {/* Clean, Non-Duplicate Secondary & Policy Links */}
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-neutral-400 font-medium text-xs">
+          <button
+            onClick={onOpenRequests}
+            className="hover:text-red-400 transition-colors cursor-pointer flex items-center space-x-1"
+          >
+            <Send className="w-3 h-3 text-red-500" />
+            <span>{t.requests.title}</span>
+          </button>
+          <span className="text-neutral-700 hidden sm:inline">•</span>
+          <button
+            onClick={() => onSelectTab('dmca')}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
+            DMCA Notice
+          </button>
+          <span className="text-neutral-700 hidden sm:inline">•</span>
+          <button
+            onClick={() => onSelectTab('privacy')}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
+            Privacy Policy
+          </button>
+          <span className="text-neutral-700 hidden sm:inline">•</span>
+          <button
+            onClick={() => onSelectTab('terms')}
+            className="hover:text-white transition-colors cursor-pointer"
+          >
+            Terms of Service
+          </button>
         </div>
+
+        {/* Social Community Buttons if configured */}
+        {(siteSettings?.telegramUrl || siteSettings?.facebookUrl || siteSettings?.youtubeUrl) && (
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            {siteSettings.telegramUrl && (
+              <a
+                href={siteSettings.telegramUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1 rounded-full bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[11px] font-semibold border border-white/5 transition-colors"
+              >
+                Telegram Channel
+              </a>
+            )}
+            {siteSettings.facebookUrl && (
+              <a
+                href={siteSettings.facebookUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1 rounded-full bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[11px] font-semibold border border-white/5 transition-colors"
+              >
+                Facebook Community
+              </a>
+            )}
+            {siteSettings.youtubeUrl && (
+              <a
+                href={siteSettings.youtubeUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="px-3 py-1 rounded-full bg-neutral-900 hover:bg-neutral-800 text-neutral-300 text-[11px] font-semibold border border-white/5 transition-colors"
+              >
+                YouTube
+              </a>
+            )}
+          </div>
+        )}
+
+        {/* Minimal Legal Disclaimer */}
+        <p className="text-[11px] text-neutral-600 max-w-xl leading-relaxed">
+          WatchAnime does not host any media files directly on its servers. All videos and multimedia content are provided by non-affiliated, authorized third parties.
+        </p>
+
+        {/* Copyright */}
+        <p className="text-[11px] text-neutral-600">
+          © {new Date().getFullYear()} WatchAnime. All rights reserved.
+        </p>
       </div>
     </footer>
   );

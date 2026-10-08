@@ -28,6 +28,13 @@ import { AlertCircle } from 'lucide-react';
 function MainApp() {
   const getInitialTab = (): string => {
     try {
+      // Check if arriving via GitHub Pages 404 redirect
+      const stored = sessionStorage.getItem('watchanime_redirect_path');
+      if (stored) {
+        sessionStorage.removeItem('watchanime_redirect_path');
+        window.history.replaceState(null, '', stored);
+      }
+
       const path = window.location.pathname.replace(/^\/|\/$/g, '');
       const hash = window.location.hash.replace(/^#\/?/, '');
       const params = new URLSearchParams(window.location.search);
@@ -35,13 +42,15 @@ function MainApp() {
 
       const route = (pParam || hash || path).toLowerCase();
       if (route === 'admin') return 'admin';
+      if (route === 'profile') return 'profile';
       if (route === 'anime') return 'anime';
       if (route === 'movies') return 'movies';
       if (route === 'series') return 'series';
       if (route === 'search') return 'search';
+      if (route === 'notifications') return 'notifications';
       if (route === 'my-list' || route === 'mylist') return 'my-list';
-      if (route === 'profile') return 'profile';
       if (route === 'history') return 'history';
+      if (route === 'watch') return 'watch';
       if (route === 'dmca' || route === 'privacy' || route === 'terms') return route;
     } catch {}
     return 'home';
@@ -52,12 +61,19 @@ function MainApp() {
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [selectedGenreForBrowse, setSelectedGenreForBrowse] = useState<string>('All');
 
-  // Change tab and sync with browser URL
+  // Change tab and sync address bar URL (e.g. /admin, /profile, /anime)
   const switchTab = (tab: string) => {
     setCurrentTab(tab);
     try {
       if (tab === 'home') {
         window.history.pushState(null, '', '/');
+      } else if (tab === 'watch') {
+        if (watchingContent?.content) {
+          const epQuery = watchingContent.episode ? `&ep=${watchingContent.episode.episodeNumber}` : '';
+          window.history.pushState(null, '', `/watch?id=${encodeURIComponent(watchingContent.content.id)}${epQuery}`);
+        } else {
+          window.history.pushState(null, '', '/watch');
+        }
       } else {
         window.history.pushState(null, '', `/${tab}`);
       }
@@ -68,7 +84,8 @@ function MainApp() {
   // Listen to browser Back/Forward & Hash changes
   useEffect(() => {
     const handlePopState = () => {
-      setCurrentTab(getInitialTab());
+      const target = getInitialTab();
+      setCurrentTab(target);
     };
     window.addEventListener('popstate', handlePopState);
     window.addEventListener('hashchange', handlePopState);
@@ -111,26 +128,55 @@ function MainApp() {
     loadData();
   }, []);
 
-  // Handle URL parameters if any (e.g., ?content=solo-leveling)
+  // Clean ?p= from 404 redirect and restore real URL in address bar + handle direct links
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const contentParam = params.get('content');
-    if (contentParam && contentList.length > 0) {
-      const found = contentList.find((c) => c.id === contentParam);
-      if (found) setDetailItem(found);
-    }
-  }, [contentList]);
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const pParam = params.get('p');
+      if (pParam) {
+        const clean = pParam.replace(/^\//, '');
+        const rest = new URLSearchParams(window.location.search);
+        rest.delete('p');
+        const searchStr = rest.toString() ? `?${rest.toString()}` : '';
+        window.history.replaceState(null, '', `/${clean}${searchStr}${window.location.hash}`);
+      }
+    } catch {}
+  }, []);
+
+  // Handle direct content linking (e.g., /watch?id=solo-leveling or ?content=solo-leveling)
+  useEffect(() => {
+    if (contentList.length === 0) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const contentId = params.get('id') || params.get('content');
+      if (contentId) {
+        const found = contentList.find((c) => c.id === contentId || c.slug === contentId);
+        if (found) {
+          const path = window.location.pathname.toLowerCase();
+          if (path.includes('watch') || currentTab === 'watch') {
+            handlePlayContent(found, undefined);
+          } else {
+            setDetailItem(found);
+          }
+        }
+      }
+    } catch {}
+  }, [contentList, currentTab]);
 
   const handlePlayContent = (content: ContentItem, episode?: Episode) => {
     setWatchingContent({ content, episode });
     setDetailItem(null);
     setCurrentTab('watch');
+    try {
+      const epQuery = episode ? `&ep=${episode.episodeNumber}` : '';
+      window.history.pushState(null, '', `/watch?id=${encodeURIComponent(content.id)}${epQuery}`);
+    } catch {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSelectGenre = (genre: string) => {
     setSelectedGenreForBrowse(genre);
-    setCurrentTab('anime');
+    switchTab('anime');
   };
 
   // Render Page Content based on tab
@@ -138,7 +184,7 @@ function MainApp() {
     if (currentTab === 'admin') {
       return (
         <AdminDashboard
-          onBackToSite={() => setCurrentTab('home')}
+          onBackToSite={() => switchTab('home')}
           onRefreshCatalog={loadData}
         />
       );
@@ -317,16 +363,17 @@ function MainApp() {
         />
       )}
 
-      {/* Footer (Hidden on Admin screen) */}
-      {currentTab !== 'admin' && (
+      {/* Footer - Only shown on catalog & policy pages, never on watch, search, profile or admin */}
+      {['home', 'anime', 'movies', 'series', 'dmca', 'privacy', 'terms'].includes(currentTab) && (
         <Footer
           onSelectTab={(tab) => switchTab(tab)}
           onOpenRequests={() => setRequestModalOpen(true)}
+          siteSettings={siteSettings}
         />
       )}
 
-      {/* Mobile Bottom Navigation Bar */}
-      {currentTab !== 'admin' && (
+      {/* Mobile Bottom Navigation Bar (Hidden while watching videos or in admin) */}
+      {currentTab !== 'admin' && currentTab !== 'watch' && (
         <MobileNav
           currentTab={currentTab}
           onSelectTab={(tab) => {
