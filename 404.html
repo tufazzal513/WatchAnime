@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WatchAnime</title>
+    <script>
+      // Single Page Application redirect for GitHub Pages
+      const path = window.location.pathname;
+      const search = window.location.search;
+      const hash = window.location.hash;
+      window.location.replace('/' + (search ? search : '') + (hash ? hash : ''));
+    </script>
+  </head>
+  <body style="background-color: #141414; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
+    <p>Loading WatchAnime...</p>
+  </body>
+</html>
