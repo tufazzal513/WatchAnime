@@ -1,0 +1,6 @@
+{
+  "name": "WatchAnime",
+  "description": "Netflix-style Movie, Anime, Web Series & TV Series Streaming Platform for watchanime.cyou",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

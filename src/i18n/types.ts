@@ -1,0 +1,120 @@
+export interface TranslationDictionary {
+  brand: string;
+  nav: {
+    home: string;
+    anime: string;
+    movies: string;
+    series: string;
+    search: string;
+    myList: string;
+    history: string;
+    requests: string;
+    admin: string;
+    login: string;
+    register: string;
+    logout: string;
+    profile: string;
+  };
+  home: {
+    watchNow: string;
+    moreInfo: string;
+    trending: string;
+    popularAnime: string;
+    popularMovies: string;
+    popularSeries: string;
+    topRated: string;
+    continueWatching: string;
+    myListTitle: string;
+    exploreGenre: string;
+  };
+  details: {
+    play: string;
+    episodes: string;
+    seasons: string;
+    genres: string;
+    cast: string;
+    director: string;
+    releaseYear: string;
+    duration: string;
+    rating: string;
+    country: string;
+    audio: string;
+    subtitles: string;
+    similarTitles: string;
+    addToList: string;
+    inList: string;
+    share: string;
+    reportBroken: string;
+    noEpisodesYet: string;
+  };
+  player: {
+    servers: string;
+    nextEpisode: string;
+    prevEpisode: string;
+    autoNext: string;
+    reporting: string;
+    serverSwitchPrompt: string;
+    disclaimer: string;
+  };
+  search: {
+    searchPlaceholder: string;
+    filterByType: string;
+    filterByGenre: string;
+    filterByYear: string;
+    all: string;
+    noResults: string;
+    tryAgain: string;
+    resultsFound: string;
+  };
+  auth: {
+    loginTitle: string;
+    registerTitle: string;
+    googleSignIn: string;
+    email: string;
+    password: string;
+    confirmPassword: string;
+    forgotPassword: string;
+    or: string;
+    dontHaveAccount: string;
+    alreadyHaveAccount: string;
+    resetSuccess: string;
+    loginSuccess: string;
+    registerSuccess: string;
+  };
+  requests: {
+    title: string;
+    subtitle: string;
+    contentTitle: string;
+    contentType: string;
+    year: string;
+    notes: string;
+    submit: string;
+    successMsg: string;
+    myRequests: string;
+  };
+  admin: {
+    dashboard: string;
+    contentManager: string;
+    addContent: string;
+    episodesManager: string;
+    requestsManager: string;
+    brokenReports: string;
+    siteSettings: string;
+    backupRestore: string;
+    seedCatalog: string;
+    bootstrapPrompt: string;
+    bootstrapSuccess: string;
+  };
+  common: {
+    loading: string;
+    error: string;
+    success: string;
+    close: string;
+    cancel: string;
+    save: string;
+    delete: string;
+    edit: string;
+    status: string;
+    viewAll: string;
+  };
+}

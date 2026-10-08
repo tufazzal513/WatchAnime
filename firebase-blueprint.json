@@ -1,0 +1,180 @@
+{
+  "entities": {
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator record",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Admin email address"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role level e.g. superadmin or admin"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp string or server timestamp"
+        }
+      },
+      "required": ["email", "role"]
+    },
+    "ContentItem": {
+      "title": "ContentItem",
+      "description": "Movie, Anime or Series record",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "originalTitle": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string", "enum": ["movie", "anime", "series"] },
+        "description": { "type": "string", "maxLength": 5000 },
+        "posterUrl": { "type": "string", "maxLength": 1000 },
+        "backdropUrl": { "type": "string", "maxLength": 1000 },
+        "releaseYear": { "type": "number" },
+        "genres": { "type": "array" },
+        "rating": { "type": "number" },
+        "runtime": { "type": "string", "maxLength": 50 },
+        "country": { "type": "string", "maxLength": 100 },
+        "audioLanguage": { "type": "string", "maxLength": 100 },
+        "subtitles": { "type": "array" },
+        "status": { "type": "string", "enum": ["published", "draft"] },
+        "featured": { "type": "boolean" },
+        "trending": { "type": "boolean" },
+        "videoServers": { "type": "array" },
+        "totalSeasons": { "type": "number" },
+        "totalEpisodes": { "type": "number" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["title", "type", "description", "posterUrl", "status"]
+    },
+    "Episode": {
+      "title": "Episode",
+      "description": "Single episode for anime or series",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string", "maxLength": 128 },
+        "seasonNumber": { "type": "number" },
+        "episodeNumber": { "type": "number" },
+        "title": { "type": "string", "maxLength": 200 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "thumbnail": { "type": "string", "maxLength": 1000 },
+        "duration": { "type": "string", "maxLength": 50 },
+        "videoServers": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["contentId", "episodeNumber", "title", "videoServers"]
+    },
+    "WatchlistItem": {
+      "title": "WatchlistItem",
+      "description": "Item saved to user watchlist",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "posterUrl": { "type": "string", "maxLength": 1000 },
+        "type": { "type": "string", "enum": ["movie", "anime", "series"] },
+        "addedAt": { "type": "string" }
+      },
+      "required": ["contentId", "title", "posterUrl", "type"]
+    },
+    "WatchHistoryItem": {
+      "title": "WatchHistoryItem",
+      "description": "User playback progress",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string", "maxLength": 128 },
+        "episodeId": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 200 },
+        "posterUrl": { "type": "string", "maxLength": 1000 },
+        "episodeNumber": { "type": "number" },
+        "progressSeconds": { "type": "number" },
+        "durationSeconds": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["contentId", "title", "posterUrl"]
+    },
+    "ContentRequest": {
+      "title": "ContentRequest",
+      "description": "User requested movie or series",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "maxLength": 128 },
+        "userEmail": { "type": "string", "maxLength": 200 },
+        "title": { "type": "string", "maxLength": 200 },
+        "type": { "type": "string", "enum": ["movie", "anime", "series"] },
+        "releaseYear": { "type": "number" },
+        "description": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["pending", "reviewing", "approved", "rejected", "completed"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "title", "type", "status"]
+    },
+    "VideoReport": {
+      "title": "VideoReport",
+      "description": "Broken link or video error report",
+      "type": "object",
+      "properties": {
+        "contentId": { "type": "string", "maxLength": 128 },
+        "contentTitle": { "type": "string", "maxLength": 200 },
+        "episodeNumber": { "type": "number" },
+        "serverName": { "type": "string", "maxLength": 100 },
+        "reason": { "type": "string", "maxLength": 1000 },
+        "reportedBy": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["open", "investigating", "resolved"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["contentId", "contentTitle", "reason", "status"]
+    },
+    "SiteSettings": {
+      "title": "SiteSettings",
+      "description": "Admin controllable website configuration",
+      "type": "object",
+      "properties": {
+        "siteName": { "type": "string", "maxLength": 100 },
+        "logoUrl": { "type": "string", "maxLength": 1000 },
+        "defaultLanguage": { "type": "string", "maxLength": 10 },
+        "announcement": { "type": "string", "maxLength": 500 },
+        "adsEnabled": { "type": "boolean" },
+        "bannerAdTop": { "type": "string", "maxLength": 5000 },
+        "bannerAdBottom": { "type": "string", "maxLength": 5000 },
+        "allowedEmbedHosts": { "type": "array" }
+      }
+    }
+  },
+  "firestore": {
+    "/admins/{adminId}": {
+      "schema": { "$ref": "#/entities/Admin" },
+      "description": "Admin access control whitelist"
+    },
+    "/content/{contentId}": {
+      "schema": { "$ref": "#/entities/ContentItem" },
+      "description": "Catalogue of movies, anime and series"
+    },
+    "/content/{contentId}/episodes/{episodeId}": {
+      "schema": { "$ref": "#/entities/Episode" },
+      "description": "Episode records for series and anime"
+    },
+    "/users/{userId}/watchlist/{contentId}": {
+      "schema": { "$ref": "#/entities/WatchlistItem" },
+      "description": "User specific watchlist entries"
+    },
+    "/users/{userId}/history/{contentId}": {
+      "schema": { "$ref": "#/entities/WatchHistoryItem" },
+      "description": "User continue-watching and playback progress"
+    },
+    "/contentRequests/{requestId}": {
+      "schema": { "$ref": "#/entities/ContentRequest" },
+      "description": "User-submitted media requests"
+    },
+    "/videoReports/{reportId}": {
+      "schema": { "$ref": "#/entities/VideoReport" },
+      "description": "Broken server and video playback reports"
+    },
+    "/siteSettings/{settingId}": {
+      "schema": { "$ref": "#/entities/SiteSettings" },
+      "description": "Platform settings and advertisement configurations"
+    }
+  }
+}

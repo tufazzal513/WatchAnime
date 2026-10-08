@@ -1,0 +1,125 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email == 'mdtufazzal513@gmail.com'
+      );
+    }
+
+    // Admins whitelist collection
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      // Allow bootstrap for the project owner or existing admins
+      allow write: if isSignedIn() && (
+        (request.auth.uid == adminId && request.auth.token.email == 'mdtufazzal513@gmail.com') ||
+        isAdmin()
+      );
+    }
+
+    // Content Catalogue (Movies, Anime, Series)
+    match /content/{contentId} {
+      allow get: if isValidId(contentId) && (resource.data.status == 'published' || isAdmin());
+      allow list: if resource.data.status == 'published' || isAdmin();
+      allow create, update, delete: if isValidId(contentId) && isAdmin();
+
+      // Sub-collection: Episodes
+      match /episodes/{episodeId} {
+        allow get: if isValidId(episodeId) && (
+          get(/databases/$(database)/documents/content/$(contentId)).data.status == 'published' ||
+          isAdmin()
+        );
+        allow list: if (
+          get(/databases/$(database)/documents/content/$(contentId)).data.status == 'published' ||
+          isAdmin()
+        );
+        allow create, update, delete: if isValidId(episodeId) && isAdmin();
+      }
+    }
+
+    // User Watchlists
+    match /users/{userId}/watchlist/{contentId} {
+      allow get: if isOwner(userId) && isValidId(contentId);
+      allow list: if isOwner(userId);
+      allow delete: if isOwner(userId) && isValidId(contentId);
+      allow create, update: if isOwner(userId) && isValidId(contentId) &&
+        request.resource.data.keys().hasAll(['contentId', 'title', 'posterUrl', 'type']) &&
+        request.resource.data.contentId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.posterUrl is string &&
+        request.resource.data.type in ['movie', 'anime', 'series'];
+    }
+
+    // User Watch History & Continue Watching
+    match /users/{userId}/history/{contentId} {
+      allow get: if isOwner(userId) && isValidId(contentId);
+      allow list: if isOwner(userId);
+      allow delete: if isOwner(userId) && isValidId(contentId);
+      allow create, update: if isOwner(userId) && isValidId(contentId) &&
+        request.resource.data.keys().hasAll(['contentId', 'title', 'posterUrl']) &&
+        request.resource.data.contentId is string &&
+        request.resource.data.title is string &&
+        request.resource.data.posterUrl is string;
+    }
+
+    // Content Requests
+    match /contentRequests/{requestId} {
+      allow get: if isValidId(requestId) && (isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && isValidId(requestId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.title is string &&
+        request.resource.data.title.size() <= 200;
+      allow update, delete: if isValidId(requestId) && isAdmin();
+    }
+
+    // Broken Link & Video Reports
+    match /videoReports/{reportId} {
+      allow get: if isValidId(reportId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(reportId) &&
+        request.resource.data.status == 'open' &&
+        request.resource.data.contentId is string &&
+        request.resource.data.contentTitle is string &&
+        request.resource.data.reason is string &&
+        request.resource.data.reason.size() <= 1000;
+      allow update, delete: if isValidId(reportId) && isAdmin();
+    }
+
+    // Site Settings & Ad Configurations
+    match /siteSettings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow write: if isValidId(settingId) && isAdmin();
+    }
+
+    // Admin Audit Logs
+    match /adminAuditLogs/{logId} {
+      allow get: if isValidId(logId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(logId) && isAdmin();
+      allow update, delete: if false; // Immutable audit trail
+    }
+  }
+}
