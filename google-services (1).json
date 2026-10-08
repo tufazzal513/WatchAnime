@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "45507485309",
+    "project_id": "watchanimecyou",
+    "storage_bucket": "watchanimecyou.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:45507485309:android:79308f5c3f9af0bfcd1b14",
+        "android_client_info": {
+          "package_name": "cyou.watchanime.app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "45507485309-gcpt35gbmk7ja0rcpkotvqnhk9nqrsq6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvCuc_xufhYtad9tj2Ebi-vw7wOxUIn9U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "45507485309-gcpt35gbmk7ja0rcpkotvqnhk9nqrsq6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
