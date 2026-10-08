@@ -17,6 +17,10 @@ import {
   VideoReport,
   SiteSettings,
   ContentType,
+  AppUser,
+  AppNotification,
+  HeroBanner,
+  CategoryItem,
 } from '../types';
 
 export const INITIAL_SEED_CONTENT: ContentItem[] = [
@@ -582,3 +586,255 @@ export async function saveSiteSettings(settings: SiteSettings): Promise<void> {
     handleFirestoreError(err, OperationType.WRITE, path);
   }
 }
+
+// ================= USER MANAGEMENT & PRESENCE ================= //
+
+export async function getAllUsers(): Promise<AppUser[]> {
+  const path = 'users';
+  try {
+    const snap = await getDocs(collection(db, path));
+    const users: AppUser[] = [];
+    snap.forEach((d) => {
+      const data = d.data();
+      if (data.email) {
+        users.push({
+          uid: d.id,
+          email: data.email,
+          displayName: data.displayName || data.email.split('@')[0],
+          photoURL: data.photoURL,
+          status: data.status || 'active',
+          role: data.role || 'user',
+          createdAt: data.createdAt || new Date().toISOString(),
+          lastActive: data.lastActive || data.createdAt || new Date().toISOString(),
+        });
+      }
+    });
+    return users.sort(
+      (a, b) =>
+        new Date(b.lastActive || 0).getTime() - new Date(a.lastActive || 0).getTime()
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function updateUserStatus(uid: string, status: 'active' | 'banned'): Promise<void> {
+  const path = `users/${uid}`;
+  try {
+    await setDoc(doc(db, 'users', uid), { status }, { merge: true });
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, path);
+  }
+}
+
+export async function recordUserActivity(user: {
+  uid: string;
+  email: string | null;
+  displayName: string | null;
+  photoURL: string | null;
+}): Promise<void> {
+  if (!user.uid) return;
+  const path = `users/${user.uid}`;
+  try {
+    await setDoc(
+      doc(db, 'users', user.uid),
+      cleanObject({
+        uid: user.uid,
+        email: user.email || '',
+        displayName: user.displayName || user.email?.split('@')[0] || 'User',
+        photoURL: user.photoURL || '',
+        lastActive: new Date().toISOString(),
+      }),
+      { merge: true }
+    );
+  } catch {}
+}
+
+export async function getUserRecord(uid: string): Promise<AppUser | null> {
+  if (!uid) return null;
+  try {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (snap.exists()) {
+      return snap.data() as AppUser;
+    }
+  } catch {}
+  return null;
+}
+
+// ================= NOTIFICATIONS BROADCAST ================= //
+
+export async function getAllNotifications(): Promise<AppNotification[]> {
+  const path = 'notifications';
+  try {
+    const snap = await getDocs(collection(db, path));
+    const items: AppNotification[] = [];
+    snap.forEach((d) => {
+      items.push({ id: d.id, ...(d.data() as Omit<AppNotification, 'id'>) });
+    });
+    return items.sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+  } catch {
+    return [];
+  }
+}
+
+export async function createNotification(notif: Omit<AppNotification, 'id'>): Promise<string> {
+  const notifId = `notif_${Date.now()}`;
+  const path = `notifications/${notifId}`;
+  try {
+    await setDoc(doc(db, 'notifications', notifId), cleanObject(notif));
+    return notifId;
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, path);
+  }
+}
+
+export async function deleteNotification(id: string): Promise<void> {
+  const path = `notifications/${id}`;
+  try {
+    await deleteDoc(doc(db, 'notifications', id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+}
+
+// ================= HERO BANNERS & SLIDER ================= //
+
+export async function getAllBanners(): Promise<HeroBanner[]> {
+  const path = 'banners';
+  try {
+    const snap = await getDocs(collection(db, path));
+    const items: HeroBanner[] = [];
+    snap.forEach((d) => {
+      items.push({ id: d.id, ...(d.data() as Omit<HeroBanner, 'id'>) });
+    });
+    return items.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  } catch {
+    return [];
+  }
+}
+
+export async function saveBanner(banner: HeroBanner): Promise<void> {
+  const path = `banners/${banner.id}`;
+  try {
+    await setDoc(doc(db, 'banners', banner.id), cleanObject(banner));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteBanner(id: string): Promise<void> {
+  const path = `banners/${id}`;
+  try {
+    await deleteDoc(doc(db, 'banners', id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+}
+
+// ================= CATEGORIES & GENRES ================= //
+
+export const DEFAULT_CATEGORIES: CategoryItem[] = [
+  { id: 'cat-action', name: 'Action', slug: 'action', icon: '⚔️', description: 'Thrilling and high-octane battles' },
+  { id: 'cat-adventure', name: 'Adventure', slug: 'adventure', icon: '🧭', description: 'Epic quests and journeys' },
+  { id: 'cat-fantasy', name: 'Fantasy', slug: 'fantasy', icon: '✨', description: 'Magic, mythical beasts, and isekai worlds' },
+  { id: 'cat-romance', name: 'Romance', slug: 'romance', icon: '💖', description: 'Heartwarming love stories' },
+  { id: 'cat-shonen', name: 'Shonen', slug: 'shonen', icon: '🔥', description: 'Young heroes rising against impossible odds' },
+  { id: 'cat-supernatural', name: 'Supernatural', slug: 'supernatural', icon: '👻', description: 'Curses, spirits, and occult powers' },
+  { id: 'cat-sci-fi', name: 'Sci-Fi', slug: 'sci-fi', icon: '🚀', description: 'Futuristic technology and space exploration' },
+  { id: 'cat-drama', name: 'Drama', slug: 'drama', icon: '🎭', description: 'Deep character stories and emotional arcs' },
+];
+
+export async function getAllCategories(): Promise<CategoryItem[]> {
+  const path = 'categories';
+  try {
+    const snap = await getDocs(collection(db, path));
+    if (snap.empty) {
+      return DEFAULT_CATEGORIES;
+    }
+    const items: CategoryItem[] = [];
+    snap.forEach((d) => {
+      items.push({ id: d.id, ...(d.data() as Omit<CategoryItem, 'id'>) });
+    });
+    return items;
+  } catch {
+    return DEFAULT_CATEGORIES;
+  }
+}
+
+export async function saveCategory(category: CategoryItem): Promise<void> {
+  const path = `categories/${category.id}`;
+  try {
+    await setDoc(doc(db, 'categories', category.id), cleanObject(category));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.WRITE, path);
+  }
+}
+
+export async function deleteCategory(id: string): Promise<void> {
+  const path = `categories/${id}`;
+  try {
+    await deleteDoc(doc(db, 'categories', id));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+}
+
+// Delete video report
+export async function deleteReport(repId: string): Promise<void> {
+  const path = `videoReports/${repId}`;
+  try {
+    await deleteDoc(doc(db, 'videoReports', repId));
+  } catch (err) {
+    handleFirestoreError(err, OperationType.DELETE, path);
+  }
+}
+
+// 1-Click Server URL replacement from Broken Link report
+export async function fixReportServerUrl(
+  reportId: string,
+  contentId: string,
+  serverName: string,
+  newEmbedUrl: string,
+  episodeNumber?: number
+): Promise<void> {
+  if (!contentId || !newEmbedUrl) return;
+
+  try {
+    // If report is for a specific episode
+    if (episodeNumber && episodeNumber > 0) {
+      const epSnap = await getDocs(
+        query(
+          collection(db, 'content', contentId, 'episodes'),
+          where('episodeNumber', '==', episodeNumber)
+        )
+      );
+      if (!epSnap.empty) {
+        const epDoc = epSnap.docs[0];
+        const epData = epDoc.data() as Episode;
+        const updatedServers = (epData.videoServers || []).map((srv) =>
+          srv.serverName === serverName ? { ...srv, embedUrl: newEmbedUrl } : srv
+        );
+        await updateDoc(epDoc.ref, { videoServers: updatedServers });
+      }
+    } else {
+      // Standalone movie or series level
+      const cRef = doc(db, 'content', contentId);
+      const cSnap = await getDoc(cRef);
+      if (cSnap.exists()) {
+        const cData = cSnap.data() as ContentItem;
+        const updatedServers = (cData.videoServers || []).map((srv) =>
+          srv.serverName === serverName ? { ...srv, embedUrl: newEmbedUrl } : srv
+        );
+        await updateDoc(cRef, { videoServers: updatedServers });
+      }
+    }
+
+    // Mark report resolved
+    await updateReportStatus(reportId, 'resolved');
+  } catch (err) {
+    handleFirestoreError(err, OperationType.UPDATE, `videoReports/${reportId}`);
+  }
+}
+

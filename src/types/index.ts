@@ -1,5 +1,5 @@
 export type ContentType = 'movie' | 'anime' | 'series';
-export type ContentStatus = 'published' | 'draft';
+export type ContentStatus = 'published' | 'draft' | 'upcoming';
 export type SubDubType = 'Sub' | 'Dub' | 'Dual Audio';
 
 export interface VideoServer {
@@ -111,4 +111,49 @@ export interface SiteSettings {
   bannerAdTop?: string;
   bannerAdBottom?: string;
   allowedEmbedHosts: string[];
+  // Social links
+  telegramUrl?: string;
+  facebookUrl?: string;
+  youtubeUrl?: string;
+  discordUrl?: string;
+}
+
+export interface AppNotification {
+  id: string;
+  title: string;
+  message: string;
+  type?: 'info' | 'release' | 'system';
+  linkUrl?: string;
+  targetContentId?: string;
+  createdAt: string;
+}
+
+export interface AppUser {
+  uid: string;
+  email: string;
+  displayName?: string;
+  photoURL?: string;
+  createdAt?: string;
+  lastActive?: string;
+  status: 'active' | 'banned';
+  role?: 'admin' | 'user';
+}
+
+export interface HeroBanner {
+  id: string;
+  title: string;
+  subtitle?: string;
+  imageUrl: string;
+  contentId?: string;
+  badge?: string;
+  active: boolean;
+  order?: number;
+}
+
+export interface CategoryItem {
+  id: string;
+  name: string;
+  slug: string;
+  icon?: string;
+  description?: string;
 }

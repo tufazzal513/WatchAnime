@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Search as SearchIcon, X, SlidersHorizontal, Star } from 'lucide-react';
-import { ContentItem, ContentType } from '../types';
+import { Search as SearchIcon, X, History as HistoryIcon, Trash2, Calendar, Film } from 'lucide-react';
+import { ContentItem } from '../types';
 import { MovieCard } from '../components/common/MovieCard';
 import { useLanguage } from '../i18n/LanguageContext';
 
@@ -21,6 +21,42 @@ export const Search: React.FC<SearchProps> = ({
   const [query, setQuery] = useState(initialQuery);
   const [selectedType, setSelectedType] = useState<string>('all');
   const [selectedGenre, setSelectedGenre] = useState<string>('all');
+  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+
+  // Load Search History from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('watchanime_search_history');
+      if (saved) setSearchHistory(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const saveToHistory = (term: string) => {
+    const trimmed = term.trim();
+    if (!trimmed || trimmed.length < 2) return;
+    try {
+      const updated = [trimmed, ...searchHistory.filter((item) => item.toLowerCase() !== trimmed.toLowerCase())].slice(0, 8);
+      setSearchHistory(updated);
+      localStorage.setItem('watchanime_search_history', JSON.stringify(updated));
+    } catch {}
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    try {
+      localStorage.removeItem('watchanime_search_history');
+    } catch {}
+  };
+
+  const removeHistoryItem = (itemToRemove: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const updated = searchHistory.filter((item) => item !== itemToRemove);
+    setSearchHistory(updated);
+    try {
+      localStorage.setItem('watchanime_search_history', JSON.stringify(updated));
+    } catch {}
+  };
 
   const genres = [
     'all',
@@ -36,6 +72,8 @@ export const Search: React.FC<SearchProps> = ({
     'Comedy',
     'Mystery',
   ];
+
+  const years = ['all', '2024', '2023', '2022', '2021', '2020', '2019', '2015', '2010'];
 
   const results = useMemo(() => {
     const q = query.toLowerCase().trim();
@@ -55,14 +93,18 @@ export const Search: React.FC<SearchProps> = ({
       const matchesGenre =
         selectedGenre === 'all' || item.genres.includes(selectedGenre);
 
-      return matchesQuery && matchesType && matchesGenre;
+      // Year filter
+      const matchesYear =
+        selectedYear === 'all' || item.releaseYear.toString() === selectedYear;
+
+      return matchesQuery && matchesType && matchesGenre && matchesYear;
     });
-  }, [contentList, query, selectedType, selectedGenre]);
+  }, [contentList, query, selectedType, selectedGenre, selectedYear]);
 
   return (
     <div className="min-h-screen bg-[#141414] pt-24 pb-16 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
       {/* Search Input Bar */}
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-3xl mx-auto space-y-3">
         <div className="relative">
           <SearchIcon className="w-6 h-6 text-neutral-400 absolute left-4 top-3.5" />
           <input
@@ -70,6 +112,9 @@ export const Search: React.FC<SearchProps> = ({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') saveToHistory(query);
+            }}
             placeholder={t.search.searchPlaceholder}
             className="w-full pl-13 pr-10 py-3.5 bg-neutral-900 border border-neutral-700/60 rounded-xl text-base text-white placeholder-neutral-500 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 shadow-xl"
           />
@@ -82,6 +127,41 @@ export const Search: React.FC<SearchProps> = ({
             </button>
           )}
         </div>
+
+        {/* Search History Tags (MoveX Feature) */}
+        {searchHistory.length > 0 && !query && (
+          <div className="flex flex-wrap items-center gap-2 pt-1 text-xs">
+            <span className="text-neutral-500 flex items-center space-x-1 mr-1">
+              <HistoryIcon className="w-3.5 h-3.5 text-neutral-400" />
+              <span>Recent:</span>
+            </span>
+            {searchHistory.map((term) => (
+              <span
+                key={term}
+                onClick={() => {
+                  setQuery(term);
+                  saveToHistory(term);
+                }}
+                className="inline-flex items-center space-x-1.5 px-2.5 py-1 rounded-lg bg-neutral-900 border border-neutral-800 hover:border-red-500/50 text-neutral-300 hover:text-white transition-all cursor-pointer shadow-sm"
+              >
+                <span>{term}</span>
+                <button
+                  onClick={(e) => removeHistoryItem(term, e)}
+                  className="hover:text-red-400 transition-colors cursor-pointer"
+                  title="Remove from history"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={clearHistory}
+              className="text-[11px] text-neutral-500 hover:text-red-400 underline ml-2 transition-colors cursor-pointer"
+            >
+              Clear
+            </button>
+          </div>
+        )}
 
         {/* Filter Pills */}
         <div className="flex flex-wrap items-center justify-between gap-3 mt-4 pt-2">
@@ -102,20 +182,38 @@ export const Search: React.FC<SearchProps> = ({
             ))}
           </div>
 
-          {/* Genre Dropdown */}
-          <div className="flex items-center space-x-2 bg-neutral-900/80 px-3 py-1.5 rounded-lg border border-neutral-800 text-xs text-neutral-300">
-            <span>{t.search.filterByGenre}:</span>
-            <select
-              value={selectedGenre}
-              onChange={(e) => setSelectedGenre(e.target.value)}
-              className="bg-transparent text-white focus:outline-none cursor-pointer"
-            >
-              {genres.map((g) => (
-                <option key={g} value={g} className="bg-neutral-900 text-white">
-                  {g === 'all' ? t.search.all : g}
-                </option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Year Dropdown */}
+            <div className="flex items-center space-x-1.5 bg-neutral-900/80 px-2.5 py-1.5 rounded-lg border border-neutral-800 text-xs text-neutral-300">
+              <Calendar className="w-3.5 h-3.5 text-neutral-400" />
+              <select
+                value={selectedYear}
+                onChange={(e) => setSelectedYear(e.target.value)}
+                className="bg-transparent text-white focus:outline-none cursor-pointer"
+              >
+                {years.map((y) => (
+                  <option key={y} value={y} className="bg-neutral-900 text-white">
+                    {y === 'all' ? 'All Years' : y}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Genre Dropdown */}
+            <div className="flex items-center space-x-1.5 bg-neutral-900/80 px-2.5 py-1.5 rounded-lg border border-neutral-800 text-xs text-neutral-300">
+              <span>{t.search.filterByGenre}:</span>
+              <select
+                value={selectedGenre}
+                onChange={(e) => setSelectedGenre(e.target.value)}
+                className="bg-transparent text-white focus:outline-none cursor-pointer"
+              >
+                {genres.map((g) => (
+                  <option key={g} value={g} className="bg-neutral-900 text-white">
+                    {g === 'all' ? t.search.all : g}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>
@@ -125,12 +223,13 @@ export const Search: React.FC<SearchProps> = ({
         <h2 className="text-sm font-semibold text-neutral-400">
           {results.length} {t.search.resultsFound}
         </h2>
-        {(query || selectedType !== 'all' || selectedGenre !== 'all') && (
+        {(query || selectedType !== 'all' || selectedGenre !== 'all' || selectedYear !== 'all') && (
           <button
             onClick={() => {
               setQuery('');
               setSelectedType('all');
               setSelectedGenre('all');
+              setSelectedYear('all');
             }}
             className="text-xs text-red-400 hover:text-red-300 cursor-pointer"
           >

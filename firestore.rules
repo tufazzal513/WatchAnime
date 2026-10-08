@@ -30,27 +30,33 @@ service cloud.firestore {
     // Admins whitelist collection
     match /admins/{adminId} {
       allow read: if isSignedIn();
-      // Allow bootstrap for the project owner or existing admins
       allow write: if isSignedIn() && (
         (request.auth.uid == adminId && request.auth.token.email == 'mdtufazzal513@gmail.com') ||
         isAdmin()
       );
     }
 
+    // User Records & Moderation
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow write: if (isOwner(userId) && isValidId(userId)) || isAdmin();
+    }
+
     // Content Catalogue (Movies, Anime, Series)
     match /content/{contentId} {
-      allow get: if isValidId(contentId) && (resource.data.status == 'published' || isAdmin());
-      allow list: if resource.data.status == 'published' || isAdmin();
+      allow get: if isValidId(contentId) && (resource.data.status == 'published' || resource.data.status == 'upcoming' || isAdmin());
+      allow list: if resource.data.status == 'published' || resource.data.status == 'upcoming' || isAdmin();
       allow create, update, delete: if isValidId(contentId) && isAdmin();
 
       // Sub-collection: Episodes
       match /episodes/{episodeId} {
         allow get: if isValidId(episodeId) && (
-          get(/databases/$(database)/documents/content/$(contentId)).data.status == 'published' ||
+          get(/databases/$(database)/documents/content/$(contentId)).data.status in ['published', 'upcoming'] ||
           isAdmin()
         );
         allow list: if (
-          get(/databases/$(database)/documents/content/$(contentId)).data.status == 'published' ||
+          get(/databases/$(database)/documents/content/$(contentId)).data.status in ['published', 'upcoming'] ||
           isAdmin()
         );
         allow create, update, delete: if isValidId(episodeId) && isAdmin();
@@ -80,6 +86,24 @@ service cloud.firestore {
         request.resource.data.contentId is string &&
         request.resource.data.title is string &&
         request.resource.data.posterUrl is string;
+    }
+
+    // Notifications Broadcast Collection
+    match /notifications/{notificationId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(notificationId) && isAdmin();
+    }
+
+    // Featured Hero Banners
+    match /banners/{bannerId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(bannerId) && isAdmin();
+    }
+
+    // Media Categories & Genres
+    match /categories/{categoryId} {
+      allow get, list: if true;
+      allow create, update, delete: if isValidId(categoryId) && isAdmin();
     }
 
     // Content Requests
@@ -119,7 +143,7 @@ service cloud.firestore {
       allow get: if isValidId(logId) && isAdmin();
       allow list: if isAdmin();
       allow create: if isValidId(logId) && isAdmin();
-      allow update, delete: if false; // Immutable audit trail
+      allow update, delete: if false;
     }
   }
 }

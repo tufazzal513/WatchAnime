@@ -12,6 +12,7 @@ import {
   Sparkles,
   Send,
   LogOut,
+  Bell,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -105,6 +106,21 @@ export const Header: React.FC<HeaderProps> = ({
             }`}
           >
             <Search className="w-5 h-5" />
+          </button>
+
+          {/* Notifications Button (MoveX Feature) */}
+          <button
+            onClick={() => onSelectTab('notifications')}
+            aria-label="Notifications"
+            title="Announcements & Notifications"
+            className={`p-2 rounded-full transition-colors cursor-pointer relative ${
+              currentTab === 'notifications'
+                ? 'bg-red-600 text-white'
+                : 'text-neutral-300 hover:text-white hover:bg-white/10'
+            }`}
+          >
+            <Bell className="w-5 h-5" />
+            <span className="w-2 h-2 rounded-full bg-red-500 absolute top-1.5 right-1.5 ring-2 ring-neutral-900 animate-pulse" />
           </button>
 
           {/* Request Button */}

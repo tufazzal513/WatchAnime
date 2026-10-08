@@ -20,6 +20,63 @@
       },
       "required": ["email", "role"]
     },
+    "AppUser": {
+      "title": "AppUser",
+      "description": "User profile and moderation record",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 200 },
+        "displayName": { "type": "string", "maxLength": 100 },
+        "photoURL": { "type": "string", "maxLength": 1000 },
+        "status": { "type": "string", "enum": ["active", "banned"] },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "createdAt": { "type": "string" },
+        "lastActive": { "type": "string" }
+      },
+      "required": ["uid", "email", "status"]
+    },
+    "AppNotification": {
+      "title": "AppNotification",
+      "description": "In-app broadcast announcements from admin",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "type": { "type": "string", "enum": ["info", "release", "system"] },
+        "linkUrl": { "type": "string", "maxLength": 1000 },
+        "targetContentId": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "message", "createdAt"]
+    },
+    "HeroBanner": {
+      "title": "HeroBanner",
+      "description": "Featured rotating slider banner on user home",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "maxLength": 200 },
+        "subtitle": { "type": "string", "maxLength": 300 },
+        "imageUrl": { "type": "string", "maxLength": 1000 },
+        "contentId": { "type": "string", "maxLength": 128 },
+        "badge": { "type": "string", "maxLength": 50 },
+        "active": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["title", "imageUrl", "active"]
+    },
+    "CategoryItem": {
+      "title": "CategoryItem",
+      "description": "Genres and media categories",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "maxLength": 100 },
+        "slug": { "type": "string", "maxLength": 100 },
+        "icon": { "type": "string", "maxLength": 100 },
+        "description": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["name", "slug"]
+    },
     "ContentItem": {
       "title": "ContentItem",
       "description": "Movie, Anime or Series record",
@@ -38,7 +95,7 @@
         "country": { "type": "string", "maxLength": 100 },
         "audioLanguage": { "type": "string", "maxLength": 100 },
         "subtitles": { "type": "array" },
-        "status": { "type": "string", "enum": ["published", "draft"] },
+        "status": { "type": "string", "enum": ["published", "draft", "upcoming"] },
         "featured": { "type": "boolean" },
         "trending": { "type": "boolean" },
         "videoServers": { "type": "array" },
@@ -139,7 +196,11 @@
         "adsEnabled": { "type": "boolean" },
         "bannerAdTop": { "type": "string", "maxLength": 5000 },
         "bannerAdBottom": { "type": "string", "maxLength": 5000 },
-        "allowedEmbedHosts": { "type": "array" }
+        "allowedEmbedHosts": { "type": "array" },
+        "telegramUrl": { "type": "string", "maxLength": 1000 },
+        "facebookUrl": { "type": "string", "maxLength": 1000 },
+        "youtubeUrl": { "type": "string", "maxLength": 1000 },
+        "discordUrl": { "type": "string", "maxLength": 1000 }
       }
     }
   },
@@ -147,6 +208,22 @@
     "/admins/{adminId}": {
       "schema": { "$ref": "#/entities/Admin" },
       "description": "Admin access control whitelist"
+    },
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/AppUser" },
+      "description": "User profiles and moderation status"
+    },
+    "/notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/AppNotification" },
+      "description": "In-app broadcast announcements"
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/HeroBanner" },
+      "description": "Featured rotating hero banners"
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/CategoryItem" },
+      "description": "Media categories and genres"
     },
     "/content/{contentId}": {
       "schema": { "$ref": "#/entities/ContentItem" },

@@ -19,15 +19,64 @@ import { DetailModal } from './components/common/DetailModal';
 import { AuthModal } from './components/common/AuthModal';
 import { RequestModal } from './components/common/RequestModal';
 import { ReportModal } from './components/common/ReportModal';
+import { BannedUserModal } from './components/common/BannedUserModal';
+import { NotificationsPage } from './pages/Notifications';
 import { AdBanner } from './components/ads/AdBanner';
 import { AdminDashboard } from './admin/AdminDashboard';
 import { AlertCircle } from 'lucide-react';
 
 function MainApp() {
-  const [currentTab, setCurrentTab] = useState<string>('home');
+  const getInitialTab = (): string => {
+    try {
+      const path = window.location.pathname.replace(/^\/|\/$/g, '');
+      const hash = window.location.hash.replace(/^#\/?/, '');
+      const params = new URLSearchParams(window.location.search);
+      const pParam = params.get('p') || params.get('tab');
+
+      const route = (pParam || hash || path).toLowerCase();
+      if (route === 'admin') return 'admin';
+      if (route === 'anime') return 'anime';
+      if (route === 'movies') return 'movies';
+      if (route === 'series') return 'series';
+      if (route === 'search') return 'search';
+      if (route === 'my-list' || route === 'mylist') return 'my-list';
+      if (route === 'profile') return 'profile';
+      if (route === 'history') return 'history';
+      if (route === 'dmca' || route === 'privacy' || route === 'terms') return route;
+    } catch {}
+    return 'home';
+  };
+
+  const [currentTab, setCurrentTab] = useState<string>(getInitialTab);
   const [contentList, setContentList] = useState<ContentItem[]>([]);
   const [siteSettings, setSiteSettings] = useState<SiteSettings | null>(null);
   const [selectedGenreForBrowse, setSelectedGenreForBrowse] = useState<string>('All');
+
+  // Change tab and sync with browser URL
+  const switchTab = (tab: string) => {
+    setCurrentTab(tab);
+    try {
+      if (tab === 'home') {
+        window.history.pushState(null, '', '/');
+      } else {
+        window.history.pushState(null, '', `/${tab}`);
+      }
+    } catch {}
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  // Listen to browser Back/Forward & Hash changes
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentTab(getInitialTab());
+    };
+    window.addEventListener('popstate', handlePopState);
+    window.addEventListener('hashchange', handlePopState);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('hashchange', handlePopState);
+    };
+  }, []);
 
   // Modals state
   const [detailItem, setDetailItem] = useState<ContentItem | null>(null);
@@ -202,6 +251,17 @@ function MainApp() {
       );
     }
 
+    if (currentTab === 'notifications') {
+      return (
+        <NotificationsPage
+          onSelectContent={(contentId) => {
+            const found = contentList.find((c) => c.id === contentId);
+            if (found) setDetailItem(found);
+          }}
+        />
+      );
+    }
+
     if (currentTab === 'dmca' || currentTab === 'privacy' || currentTab === 'terms') {
       return (
         <Legal
@@ -229,8 +289,7 @@ function MainApp() {
           currentTab={currentTab}
           onSelectTab={(tab) => {
             setSelectedGenreForBrowse('All');
-            setCurrentTab(tab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            switchTab(tab);
           }}
           onOpenAuth={() => setAuthModalOpen(true)}
           onOpenRequests={() => setRequestModalOpen(true)}
@@ -261,10 +320,7 @@ function MainApp() {
       {/* Footer (Hidden on Admin screen) */}
       {currentTab !== 'admin' && (
         <Footer
-          onSelectTab={(tab) => {
-            setCurrentTab(tab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
-          }}
+          onSelectTab={(tab) => switchTab(tab)}
           onOpenRequests={() => setRequestModalOpen(true)}
         />
       )}
@@ -275,8 +331,7 @@ function MainApp() {
           currentTab={currentTab}
           onSelectTab={(tab) => {
             setSelectedGenreForBrowse('All');
-            setCurrentTab(tab);
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            switchTab(tab);
           }}
           onOpenAuth={() => setAuthModalOpen(true)}
         />
@@ -320,6 +375,9 @@ function MainApp() {
         server={reportModalData.server}
         onClose={() => setReportModalData({ content: null })}
       />
+
+      {/* Banned User Alert Modal (MoveX Feature) */}
+      <BannedUserModal />
     </div>
   );
 }
