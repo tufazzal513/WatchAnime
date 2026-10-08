@@ -16,8 +16,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 
-// CRITICAL: The app will break without specifying firestoreDatabaseId
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+// Connect to default Firestore or specified database instance
+export const db =
+  firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)'
+    ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
+    : getFirestore(app);
+
 export const auth = getAuth(app);
 
 // Test connection on boot per Firebase guidelines
