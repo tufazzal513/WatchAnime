@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>WatchAnime</title>
     <script>
-      // Single Page Application redirect for GitHub Pages
+      // Single Page Application redirect for GitHub Pages custom domain
+      // Preserves paths like /admin, /anime, /movies, /search, /profile
       const path = window.location.pathname;
       const search = window.location.search;
       const hash = window.location.hash;
-      window.location.replace('/' + (search ? search : '') + (hash ? hash : ''));
+      const cleanPath = path.replace(/^\/|\/$/g, '');
+      if (cleanPath) {
+        window.location.replace('/?p=' + encodeURIComponent(cleanPath) + (search ? '&' + search.slice(1) : '') + hash);
+      } else {
+        window.location.replace('/' + (search ? search : '') + hash);
+      }
     </script>
   </head>
   <body style="background-color: #141414; color: #fff; font-family: sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0;">
