@@ -13,6 +13,8 @@ import {
   Send,
   LogOut,
   Bell,
+  History,
+  Home,
 } from 'lucide-react';
 import { useLanguage } from '../../i18n/LanguageContext';
 import { useAuth } from '../../context/AuthContext';
@@ -45,11 +47,12 @@ export const Header: React.FC<HeaderProps> = ({
   }, []);
 
   const navItems = [
-    { id: 'home', label: t.nav.home },
-    { id: 'anime', label: t.nav.anime },
-    { id: 'movies', label: t.nav.movies },
-    { id: 'series', label: t.nav.series },
-    { id: 'my-list', label: t.nav.myList },
+    { id: 'home', label: t.nav.home, icon: Home },
+    { id: 'anime', label: t.nav.anime, icon: Tv },
+    { id: 'movies', label: t.nav.movies, icon: Film },
+    { id: 'series', label: t.nav.series, icon: Film },
+    { id: 'my-list', label: t.nav.myList, icon: Bookmark },
+    { id: 'history', label: t.nav.history, icon: History },
   ];
 
   return (
@@ -62,7 +65,16 @@ export const Header: React.FC<HeaderProps> = ({
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between">
         {/* Brand & Desktop Navigation */}
-        <div className="flex items-center space-x-8">
+        <div className="flex items-center space-x-4 md:space-x-8">
+          {/* Mobile Hamburger Toggle */}
+          <button
+            onClick={() => setMobileMenuOpen(true)}
+            className="md:hidden p-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors cursor-pointer"
+            aria-label="Open Menu"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
+
           <button
             onClick={() => onSelectTab('home')}
             className="flex items-center space-x-2 text-left group cursor-pointer focus:outline-none"
@@ -70,7 +82,7 @@ export const Header: React.FC<HeaderProps> = ({
             <div className="w-8 h-8 rounded bg-red-600 flex items-center justify-center font-black text-white text-lg tracking-wider shadow-lg shadow-red-600/30 group-hover:scale-105 transition-transform">
               W
             </div>
-            <span className="text-xl sm:text-2xl font-black tracking-tight text-white uppercase group-hover:text-red-500 transition-colors">
+            <span className="text-lg sm:text-2xl font-black tracking-tight text-white uppercase group-hover:text-red-500 transition-colors">
               WATCH<span className="text-red-600">ANIME</span>
             </span>
           </button>
@@ -94,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Right Action Icons */}
-        <div className="flex items-center space-x-3 sm:space-x-4">
+        <div className="flex items-center space-x-2.5 sm:space-x-4">
           {/* Search Button */}
           <button
             onClick={() => onSelectTab('search')}
@@ -108,7 +120,7 @@ export const Header: React.FC<HeaderProps> = ({
             <Search className="w-5 h-5" />
           </button>
 
-          {/* Notifications Button (MoveX Feature) */}
+          {/* Notifications Button */}
           <button
             onClick={() => onSelectTab('notifications')}
             aria-label="Notifications"
@@ -194,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
                       setUserDropdownOpen(false);
                       onSelectTab('profile');
                     }}
-                    className="w-full text-left px-4 py-2 text-neutral-300 hover:bg-neutral-800 hover:text-white flex items-center space-x-2 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 hover:bg-neutral-800 text-neutral-200 flex items-center space-x-2 transition-colors cursor-pointer"
                   >
                     <User className="w-4 h-4 text-neutral-400" />
                     <span>{t.nav.profile}</span>
@@ -202,19 +214,9 @@ export const Header: React.FC<HeaderProps> = ({
                   <button
                     onClick={() => {
                       setUserDropdownOpen(false);
-                      onSelectTab('my-list');
+                      logout();
                     }}
-                    className="w-full text-left px-4 py-2 text-neutral-300 hover:bg-neutral-800 hover:text-white flex items-center space-x-2 cursor-pointer"
-                  >
-                    <Bookmark className="w-4 h-4 text-neutral-400" />
-                    <span>{t.nav.myList}</span>
-                  </button>
-                  <button
-                    onClick={async () => {
-                      setUserDropdownOpen(false);
-                      await logout();
-                    }}
-                    className="w-full text-left px-4 py-2 text-red-400 hover:bg-neutral-800 hover:text-red-300 flex items-center space-x-2 cursor-pointer"
+                    className="w-full text-left px-4 py-2.5 hover:bg-red-950/60 text-red-400 flex items-center space-x-2 transition-colors cursor-pointer border-t border-neutral-800"
                   >
                     <LogOut className="w-4 h-4" />
                     <span>{t.nav.logout}</span>
@@ -225,61 +227,148 @@ export const Header: React.FC<HeaderProps> = ({
           ) : (
             <button
               onClick={onOpenAuth}
-              className="px-4 py-1.5 rounded bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold shadow-md shadow-red-600/30 transition-all cursor-pointer"
+              className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-md shadow-red-600/30 transition-all cursor-pointer whitespace-nowrap"
             >
               {t.nav.login}
             </button>
           )}
-
-          {/* Mobile Menu Hamburger */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="md:hidden p-2 text-neutral-300 hover:text-white focus:outline-none cursor-pointer"
-          >
-            {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile Menu Dropdown */}
+      {/* Mobile Slide-out Menu Drawer (Ensures nothing is hidden on phone view) */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-neutral-950 border-b border-neutral-800 px-6 py-4 space-y-3">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => {
-                onSelectTab(item.id);
-                setMobileMenuOpen(false);
-              }}
-              className={`block w-full text-left py-2 text-base font-medium ${
-                currentTab === item.id ? 'text-red-500 font-bold' : 'text-neutral-300'
-              }`}
-            >
-              {item.label}
-            </button>
-          ))}
-          <button
-            onClick={() => {
-              onOpenRequests();
-              setMobileMenuOpen(false);
-            }}
-            className="block w-full text-left py-2 text-base font-medium text-neutral-300 flex items-center space-x-2"
-          >
-            <Send className="w-4 h-4 text-red-500" />
-            <span>{t.requests.title}</span>
-          </button>
-          {isAdmin && (
-            <button
-              onClick={() => {
-                onSelectTab('admin');
-                setMobileMenuOpen(false);
-              }}
-              className="block w-full text-left py-2 text-base font-semibold text-red-400 flex items-center space-x-2"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>{t.nav.admin}</span>
-            </button>
-          )}
+        <div className="md:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 flex">
+          <div className="w-4/5 max-w-xs bg-[#141414] h-full shadow-2xl p-6 flex flex-col justify-between border-r border-white/10 animate-in slide-in-from-left duration-200">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-white/10 pb-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-7 h-7 rounded bg-red-600 flex items-center justify-center font-black text-white text-sm shadow-md">
+                    W
+                  </div>
+                  <span className="font-black text-base text-white uppercase">
+                    WATCH<span className="text-red-600">ANIME</span>
+                  </span>
+                </div>
+                <button
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Navigation Links */}
+              <nav className="space-y-1.5">
+                {navItems.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentTab === item.id;
+                  return (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        onSelectTab(item.id);
+                      }}
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors ${
+                        isActive
+                          ? 'bg-red-600 text-white shadow-md'
+                          : 'text-neutral-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{item.label}</span>
+                    </button>
+                  );
+                })}
+
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenRequests();
+                  }}
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
+                >
+                  <Send className="w-4 h-4 text-red-500" />
+                  <span>{t.requests.title}</span>
+                </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSelectTab('admin');
+                    }}
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors ${
+                      currentTab === 'admin'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-red-950/60 text-red-300 border border-red-500/30'
+                    }`}
+                  >
+                    <ShieldCheck className="w-4 h-4 text-red-400" />
+                    <span>{t.nav.admin}</span>
+                  </button>
+                )}
+              </nav>
+            </div>
+
+            {/* Bottom Profile / Auth */}
+            <div className="pt-4 border-t border-white/10 space-y-3">
+              {user ? (
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-3 px-2">
+                    {user.photoURL ? (
+                      <img
+                        src={user.photoURL}
+                        alt="User"
+                        className="w-9 h-9 rounded-full object-cover border border-white/20"
+                      />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-neutral-800 flex items-center justify-center text-white font-bold text-xs">
+                        {user.email ? user.email.slice(0, 2).toUpperCase() : 'U'}
+                      </div>
+                    )}
+                    <div className="truncate">
+                      <p className="text-xs font-bold text-white truncate">
+                        {user.displayName || 'Subscriber'}
+                      </p>
+                      <p className="text-[10px] text-neutral-400 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      onSelectTab('profile');
+                    }}
+                    className="w-full py-2 rounded-lg bg-neutral-900 text-neutral-200 text-xs font-semibold flex items-center justify-center space-x-2 border border-white/5"
+                  >
+                    <User className="w-3.5 h-3.5" />
+                    <span>{t.nav.profile}</span>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      logout();
+                    }}
+                    className="w-full py-2 rounded-lg bg-red-950/60 text-red-400 text-xs font-semibold flex items-center justify-center space-x-2 border border-red-500/30"
+                  >
+                    <LogOut className="w-3.5 h-3.5" />
+                    <span>{t.nav.logout}</span>
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    onOpenAuth();
+                  }}
+                  className="w-full py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/30 flex items-center justify-center space-x-2"
+                >
+                  <span>{t.nav.login} / Register</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="flex-1" onClick={() => setMobileMenuOpen(false)} />
         </div>
       )}
     </header>

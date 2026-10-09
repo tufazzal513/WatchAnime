@@ -104,7 +104,7 @@ export const Profile: React.FC<ProfileProps> = ({ onSelectTab, onOpenAuth }) => 
         </div>
 
         {/* Stats Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-8 pt-6 border-t border-white/5">
+        <div className="grid grid-cols-2 gap-4 mt-8 pt-6 border-t border-white/5">
           <div
             onClick={() => onSelectTab('my-list')}
             className="p-4 rounded-xl bg-black/40 border border-white/5 hover:border-red-500/50 transition-all cursor-pointer"
@@ -126,25 +126,49 @@ export const Profile: React.FC<ProfileProps> = ({ onSelectTab, onOpenAuth }) => 
             </div>
             <p className="text-2xl font-black text-white">{history.length}</p>
           </div>
+        </div>
+      </div>
 
-          <div className="p-4 rounded-xl bg-black/40 border border-white/5 col-span-2 sm:col-span-1">
-            <div className="flex items-center space-x-2 text-xs text-neutral-400 mb-1">
-              <Globe className="w-4 h-4 text-red-500" />
-              <span>Language</span>
-            </div>
-            <button
-              onClick={() => setLanguage(language === 'en' ? 'bn' : 'en')}
-              className="text-sm font-bold text-red-400 hover:text-red-300 cursor-pointer"
-            >
-              {language === 'en' ? 'English (Switch to বাংলা)' : 'বাংলা (Switch to EN)'}
-            </button>
-          </div>
+      {/* Language & App Preferences Card */}
+      <div className="bg-neutral-900 border border-white/5 rounded-2xl p-6 space-y-4 shadow-xl">
+        <div className="flex items-center space-x-2.5 text-white font-bold text-base">
+          <Globe className="w-5 h-5 text-red-500" />
+          <span>App Language / ভাষা পছন্দ</span>
+        </div>
+        <p className="text-xs text-neutral-400">
+          Select your preferred interface language between English and Bengali (বাংলা).
+        </p>
+
+        <div className="grid grid-cols-2 gap-4 pt-2">
+          <button
+            onClick={() => setLanguage('en')}
+            className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer border ${
+              language === 'en'
+                ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/30'
+                : 'bg-black/40 text-neutral-300 border-white/10 hover:bg-white/5'
+            }`}
+          >
+            <span>🇺🇸 English</span>
+            {language === 'en' && <CheckCircle2 className="w-4 h-4 ml-1" />}
+          </button>
+
+          <button
+            onClick={() => setLanguage('bn')}
+            className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 cursor-pointer border ${
+              language === 'bn'
+                ? 'bg-red-600 text-white border-red-500 shadow-lg shadow-red-600/30'
+                : 'bg-black/40 text-neutral-300 border-white/10 hover:bg-white/5'
+            }`}
+          >
+            <span>🇧🇩 বাংলা</span>
+            {language === 'bn' && <CheckCircle2 className="w-4 h-4 ml-1" />}
+          </button>
         </div>
       </div>
 
       {/* Admin Quick Actions (If user is Admin or Superadmin email) */}
       {(isAdmin || user.email === 'mdtufazzal513@gmail.com') && (
-        <div className="bg-neutral-900 border border-red-500/30 rounded-2xl p-6 space-y-4">
+        <div className="bg-neutral-900 border border-red-500/30 rounded-2xl p-6 space-y-4 shadow-xl">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2 text-white font-bold">
               <ShieldCheck className="w-5 h-5 text-red-500" />

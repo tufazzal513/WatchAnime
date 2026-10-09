@@ -89,8 +89,36 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onBackToSite,
   onRefreshCatalog,
 }) => {
-  const { isAdmin, user } = useAuth();
+  const { isAdmin, user, loading: authLoading } = useAuth();
   const { t } = useLanguage();
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-red-600 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-[#0e0e0e] text-white flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-16 h-16 rounded-full bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500">
+          <ShieldAlert className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-black tracking-tight">Access Denied</h2>
+        <p className="text-sm text-neutral-400 max-w-sm leading-relaxed">
+          You do not have administrator privileges to access this panel. Only authorized administrators can view this page.
+        </p>
+        <button
+          onClick={onBackToSite}
+          className="px-6 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-sm shadow-lg shadow-red-600/30 transition-all cursor-pointer"
+        >
+          Return to Home
+        </button>
+      </div>
+    );
+  }
 
   const [activeTab, setActiveTab] = useState<
     | 'dashboard'
