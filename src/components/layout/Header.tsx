@@ -57,7 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+      className={`fixed top-0 left-0 right-0 z-40 transition-all duration-300 ${
         isScrolled
           ? 'bg-[#141414]/95 backdrop-blur-md shadow-2xl py-3 border-b border-white/5'
           : 'bg-gradient-to-b from-black/90 via-black/40 to-transparent py-4'
@@ -235,10 +235,10 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Mobile Slide-out Menu Drawer (Ensures nothing is hidden on phone view) */}
+      {/* Mobile Slide-out Menu Drawer (Ensures proper z-index and solid background to prevent overlapping) */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-md animate-in fade-in duration-200 flex">
-          <div className="w-4/5 max-w-xs bg-[#141414] h-full shadow-2xl p-6 flex flex-col justify-between border-r border-white/10 animate-in slide-in-from-left duration-200">
+        <div className="md:hidden fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md animate-in fade-in duration-200 flex">
+          <div className="w-4/5 max-w-xs bg-[#121212] h-full shadow-2xl p-6 flex flex-col justify-between border-r border-white/10 animate-in slide-in-from-left duration-200">
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-white/10 pb-4">
                 <div className="flex items-center space-x-2">
@@ -251,7 +251,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </div>
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors"
+                  className="p-1.5 rounded-full text-neutral-400 hover:text-white hover:bg-neutral-800 transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -269,7 +269,7 @@ export const Header: React.FC<HeaderProps> = ({
                         setMobileMenuOpen(false);
                         onSelectTab(item.id);
                       }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors ${
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors cursor-pointer ${
                         isActive
                           ? 'bg-red-600 text-white shadow-md'
                           : 'text-neutral-300 hover:bg-white/5 hover:text-white'
@@ -286,7 +286,7 @@ export const Header: React.FC<HeaderProps> = ({
                     setMobileMenuOpen(false);
                     onOpenRequests();
                   }}
-                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 text-neutral-300 hover:bg-white/5 hover:text-white transition-colors"
+                  className="w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 text-neutral-300 hover:bg-white/5 hover:text-white transition-colors cursor-pointer"
                 >
                   <Send className="w-4 h-4 text-red-500" />
                   <span>{t.requests.title}</span>
@@ -298,7 +298,7 @@ export const Header: React.FC<HeaderProps> = ({
                       setMobileMenuOpen(false);
                       onSelectTab('admin');
                     }}
-                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors ${
+                    className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm font-semibold flex items-center space-x-3 transition-colors cursor-pointer ${
                       currentTab === 'admin'
                         ? 'bg-red-600 text-white'
                         : 'bg-red-950/60 text-red-300 border border-red-500/30'
@@ -339,7 +339,7 @@ export const Header: React.FC<HeaderProps> = ({
                       setMobileMenuOpen(false);
                       onSelectTab('profile');
                     }}
-                    className="w-full py-2 rounded-lg bg-neutral-900 text-neutral-200 text-xs font-semibold flex items-center justify-center space-x-2 border border-white/5"
+                    className="w-full py-2 rounded-lg bg-neutral-900 text-neutral-200 text-xs font-semibold flex items-center justify-center space-x-2 border border-white/5 cursor-pointer"
                   >
                     <User className="w-3.5 h-3.5" />
                     <span>{t.nav.profile}</span>
@@ -349,7 +349,7 @@ export const Header: React.FC<HeaderProps> = ({
                       setMobileMenuOpen(false);
                       logout();
                     }}
-                    className="w-full py-2 rounded-lg bg-red-950/60 text-red-400 text-xs font-semibold flex items-center justify-center space-x-2 border border-red-500/30"
+                    className="w-full py-2 rounded-lg bg-red-950/60 text-red-400 text-xs font-semibold flex items-center justify-center space-x-2 border border-red-500/30 cursor-pointer"
                   >
                     <LogOut className="w-3.5 h-3.5" />
                     <span>{t.nav.logout}</span>
@@ -361,7 +361,7 @@ export const Header: React.FC<HeaderProps> = ({
                     setMobileMenuOpen(false);
                     onOpenAuth();
                   }}
-                  className="w-full py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/30 flex items-center justify-center space-x-2"
+                  className="w-full py-2.5 rounded-xl bg-red-600 text-white text-xs font-bold shadow-md shadow-red-600/30 flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <span>{t.nav.login} / Register</span>
                 </button>
