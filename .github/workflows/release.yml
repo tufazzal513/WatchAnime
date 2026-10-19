@@ -16,7 +16,7 @@ jobs:
           go-version: '1.22'
 
       - name: Build
-        run: go build -v -o fsb ./cmd/fsb/main.go
+        run: go build -v -o fsb ./cmd/fsb/
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
