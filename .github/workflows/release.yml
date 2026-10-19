@@ -15,15 +15,13 @@ jobs:
         with:
           go-version: '1.22'
 
-      # মূল সমাধান: ডিরেক্টরির সব ফাইল একসাথে বিল্ড করা
       - name: Build
-        run: |
-          cd cmd/fsb
-          go build -v -o fsb .
+        # পুরো মডিউল পাথ থেকে বিল্ড করছি যাতে প্যাকেজ গুলো ঠিকঠাক পায়
+        run: go build -v -o fsb ./cmd/fsb/...
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: cmd/fsb/fsb
+          files: fsb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
