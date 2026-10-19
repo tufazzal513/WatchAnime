@@ -16,11 +16,14 @@ jobs:
           go-version: '1.22'
 
       - name: Build
-        run: go build -v -o fsb ./cmd/fsb
+        # এখানে ডট (.) ব্যবহার করা হয়েছে যাতে cmd/fsb ফোল্ডারের সব ফাইল একসাথে বিল্ড হয়
+        run: |
+          cd cmd/fsb
+          go build -v -o fsb .
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v2
         with:
-          files: fsb
+          files: cmd/fsb/fsb
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
