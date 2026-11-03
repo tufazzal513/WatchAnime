@@ -9,10 +9,16 @@ import (
 
 // RegisterAdminRoutes mounts all SSR admin panel routes onto the ServeMux.
 func RegisterAdminRoutes(mux *http.ServeMux, h *AdminHandler, adminMgr *auth.AdminManager) {
-	// Public Login Routes
+	// Public Login Routes & Static Assets
 	mux.HandleFunc("GET /admin/login", h.HandleLoginView)
 	mux.HandleFunc("POST /admin/login", h.HandleLoginPost)
 	mux.HandleFunc("POST /admin/logout", h.HandleLogout)
+	mux.Handle("GET /admin/static/", h.StaticFS())
+
+	// Route /admin without trailing slash to /admin/
+	mux.HandleFunc("GET /admin", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/", http.StatusSeeOther)
+	})
 
 	// Protected Routes (Session & CSRF guard)
 	requireAdmin := api.RequireAdminAuthMiddleware(adminMgr)

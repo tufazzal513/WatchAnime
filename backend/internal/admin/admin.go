@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -100,6 +101,14 @@ func NewAdminHandler(
 	h.tmplMap["login.html"] = loginTmpl
 
 	return h, nil
+}
+
+func (h *AdminHandler) StaticFS() http.Handler {
+	sub, err := fs.Sub(contentFS, "static")
+	if err != nil {
+		return http.NotFoundHandler()
+	}
+	return http.StripPrefix("/admin/static/", http.FileServer(http.FS(sub)))
 }
 
 // -----------------------------------------------------------------------------

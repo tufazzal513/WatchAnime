@@ -45,10 +45,12 @@ GitHub-এ ফ্রন্টএন্ড এবং ব্যাকএন্ড�
 ১. BotKeep Cloud-এ **শুধুমাত্র `backend` ফোল্ডারের ফাইলগুলো** আপলোড করবেন (ফ্রন্টএন্ডের ফাইল আপলোড করার প্রয়োজন নেই)।
 ২. BotKeep ড্যাশবোর্ডের **Files** অপশনে যান।
 ৩. `backend` ফোল্ডারের ভেতরের ফাইলগুলো (`go.mod`, `go.sum`, `cmd`, `internal`) Zip করে Upload করে Extract করুন, অথবা SFTP ক্লায়েন্ট (যেমন Solid Explorer/FX File Explorer) দিয়ে আপলোড করুন।
-৪. **Startup Command (খুবই গুরুত্বপূর্ণ):** 
-   BotKeep এর **Startup** অপশনে **Startup Command** পরিবর্তন করে দিন:
-   `./movex serve` (অথবা `./bin/movex serve`)
-   *(দ্রষ্টব্য: `go run` ব্যবহার করলে সার্ভার স্টার্ট হওয়ার সময় সোর্স কোড বিল্ড করতে গিয়ে ডিস্ক স্পেস ফুল হয়ে এরর দেয়। `./movex serve` দিলে প্রি-কম্পাইল্ড বাইনারি চলায় ১ সেকেন্ডেই কোনো এরর ছাড়া সার্ভার চালু হয়ে যাবে!)*
+৪. **Startup Command (Permission Denied সমস্যার সমাধান):** 
+   BotKeep এর **Startup** অপশনে **Startup Command** পরিবর্তন করে এটি দিন:
+   ```bash
+   chmod +x ./movex && ./movex serve
+   ```
+   *(দ্রষ্টব্য: ফাইল আপলোড করার পর লিনাক্সে Executable পারমিশন না থাকলে `Permission denied (Exit code 126)` দেখায়। `chmod +x ./movex && ./movex serve` কমান্ডটি পারমিশন ফিক্স করে সাথে সাথে সার্ভিস রান করে দেবে!)*
 
 ---
 

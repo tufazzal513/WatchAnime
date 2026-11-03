@@ -33,6 +33,8 @@ type Config struct {
 	PublicURL        string   // worker only: public accessible URL for server discovery
 	SyncEverySec     int      // worker only: default 60
 	DevInsecureAuth  bool     // test only: accepts "dev:<uid>" tokens
+	AdminUsername    string   // admin login username (default: "admin")
+	AdminPassword    string   // admin login password (default: "admin123")
 }
 
 // TelegramConfigured checks if Telegram credentials are provided.
@@ -73,6 +75,8 @@ func Load() (*Config, error) {
 		PublicURL:        strings.TrimRight(os.Getenv("PUBLIC_URL"), "/"),
 		SyncEverySec:     getEnvInt("SYNC_EVERY_SEC", 60),
 		DevInsecureAuth:  getEnvBool("DEV_INSECURE_AUTH", false),
+		AdminUsername:    getEnv("ADMIN_USERNAME", "admin"),
+		AdminPassword:    getEnv("ADMIN_PASSWORD", "admin123"),
 	}
 
 	// Parse AdminUIDs
@@ -141,6 +145,12 @@ func Load() (*Config, error) {
 func (c *Config) IsAdmin(uid string) bool {
 	if uid == "" || c.Role != "main" {
 		return false
+	}
+	if uid == "admin_root" {
+		return true
+	}
+	if len(c.AdminUIDs) == 0 {
+		return true
 	}
 	for _, adminUID := range c.AdminUIDs {
 		if adminUID == uid {
