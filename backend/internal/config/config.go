@@ -58,7 +58,7 @@ func (c *Config) BotToken() string {
 func Load() (*Config, error) {
 	cfg := &Config{
 		Role:             getEnv("ROLE", "main"),
-		Port:             getEnvInt("PORT", 3000),
+		Port:             getPort(),
 		DataDir:          getEnv("DATA_DIR", "./data"),
 		FirebaseProjectID: os.Getenv("FIREBASE_PROJECT_ID"),
 		FirebaseAPIKey:   os.Getenv("FIREBASE_API_KEY"),
@@ -163,6 +163,20 @@ func (c *Config) IsAdmin(uid string) bool {
 // DBPath returns the SQLite database file path.
 func (c *Config) DBPath() string {
 	return filepath.Join(c.DataDir, "movex.db")
+}
+
+func getPort() int {
+	if val := os.Getenv("PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			return n
+		}
+	}
+	if val := os.Getenv("SERVER_PORT"); val != "" {
+		if n, err := strconv.Atoi(val); err == nil && n > 0 {
+			return n
+		}
+	}
+	return 3000
 }
 
 func getEnv(key, defaultVal string) string {
