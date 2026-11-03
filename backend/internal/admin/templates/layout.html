@@ -1,0 +1,199 @@
+{{define "layout"}}
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}} - MoveX Admin</title>
+    <!-- Tailwind CSS (compiled/standalone CDN for admin) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#0b0f19',
+                            800: '#111827',
+                            700: '#1f2937',
+                            600: '#374151'
+                        },
+                        brand: {
+                            500: '#3b82f6',
+                            600: '#2563eb'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- HTMX -->
+    <script src="https://unpkg.com/htmx.org@1.9.10"></script>
+    <style>
+        /* Custom scrollbar and subtle transitions */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #111827; }
+        ::-webkit-scrollbar-thumb { background: #374151; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4b5563; }
+    </style>
+</head>
+<body class="bg-[#0b0f19] text-gray-200 antialiased font-sans min-h-screen flex flex-col md:flex-row">
+
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-dark-800 border-b border-gray-800 p-4 flex items-center justify-between sticky top-0 z-40">
+        <div class="flex items-center space-x-3">
+            <span class="text-xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">MoveX</span>
+            <span class="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded {{if eq .Role "main"}}bg-emerald-500/20 text-emerald-400 border border-emerald-500/30{{else}}bg-purple-500/20 text-purple-400 border border-purple-500/30{{end}}">{{.Role}}</span>
+        </div>
+        <button id="mobile-menu-btn" class="text-gray-400 hover:text-white focus:outline-none">
+            <i class="fas fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="hidden md:flex flex-col w-64 bg-dark-800/90 backdrop-blur-md border-r border-gray-800 shrink-0 min-h-screen z-30 transition-all duration-200 fixed md:relative inset-y-0 left-0">
+        <!-- Brand Header -->
+        <div class="p-5 border-b border-gray-800 flex items-center justify-between">
+            <a href="/admin/" class="flex items-center space-x-2.5">
+                <div class="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20">
+                    <i class="fas fa-play text-xs"></i>
+                </div>
+                <span class="text-xl font-black tracking-wider text-white">Move<span class="text-blue-500">X</span></span>
+            </a>
+            <span class="text-[10px] uppercase font-extrabold px-2 py-0.5 rounded tracking-widest {{if eq .Role "main"}}bg-emerald-500/10 text-emerald-400 border border-emerald-500/20{{else}}bg-purple-500/10 text-purple-400 border border-purple-500/20{{end}}">{{.Role}}</span>
+        </div>
+
+        <!-- Navigation Links -->
+        <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+            <a href="/admin/" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "dashboard"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-chart-pie w-5 text-center mr-3"></i> Dashboard
+            </a>
+
+            <div class="pt-3 pb-1.5 px-3.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Content</div>
+
+            <a href="/admin/movies" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "movies"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-film w-5 text-center mr-3"></i> All Movies
+            </a>
+
+            <a href="/admin/movies/new" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "movie_new"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-plus-circle w-5 text-center mr-3"></i> Add Content
+            </a>
+
+            <a href="/admin/categories" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "categories"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-tags w-5 text-center mr-3"></i> Categories
+            </a>
+
+            <a href="/admin/banners" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "banners"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-images w-5 text-center mr-3"></i> Banners
+            </a>
+
+            <div class="pt-3 pb-1.5 px-3.5 text-[11px] font-bold tracking-wider text-gray-500 uppercase">Management</div>
+
+            <a href="/admin/users" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "users"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-users w-5 text-center mr-3"></i> Users
+            </a>
+
+            <a href="/admin/broken-links" class="flex items-center justify-between px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "broken"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <div class="flex items-center">
+                    <i class="fas fa-link-slash w-5 text-center mr-3"></i> Broken Links
+                </div>
+                {{if gt .BrokenLinksCount 0}}
+                <span class="bg-red-500 text-white text-[11px] font-black px-1.5 py-0.5 rounded-full">{{.BrokenLinksCount}}</span>
+                {{end}}
+            </a>
+
+            <a href="/admin/settings" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "settings"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-sliders w-5 text-center mr-3"></i> Settings
+            </a>
+
+            <a href="/admin/server" class="flex items-center px-3.5 py-2.5 rounded-lg text-sm font-semibold transition-colors {{if eq .ActiveNav "server"}}bg-blue-600 text-white shadow-md shadow-blue-600/30{{else}}text-gray-400 hover:bg-dark-700/60 hover:text-white{{end}}">
+                <i class="fas fa-server w-5 text-center mr-3"></i> Server & Workers
+            </a>
+        </nav>
+
+        <!-- Current Admin & Logout -->
+        <div class="p-4 border-t border-gray-800 bg-dark-900/60">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2.5 overflow-hidden">
+                    <div class="w-8 h-8 rounded-full bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-blue-400 font-bold shrink-0">
+                        <i class="fas fa-user-shield text-xs"></i>
+                    </div>
+                    <div class="truncate">
+                        <div class="text-xs font-bold text-white truncate">{{.AdminUID}}</div>
+                        <div class="text-[10px] text-gray-400 flex items-center">
+                            <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 inline-block"></span> Online
+                        </div>
+                    </div>
+                </div>
+                <form action="/admin/logout" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+                    <button type="submit" title="Logout" class="text-gray-400 hover:text-red-400 p-2 rounded-lg hover:bg-dark-700/60 transition-colors">
+                        <i class="fas fa-right-from-bracket"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col min-w-0 overflow-y-auto">
+        <!-- Top Action Header -->
+        <header class="bg-dark-800/60 backdrop-blur-md border-b border-gray-800 px-6 py-4 flex items-center justify-between sticky top-0 z-20">
+            <div class="flex items-center space-x-4">
+                <h1 class="text-xl font-bold text-white tracking-tight">{{.Title}}</h1>
+                <!-- Live Users Indicator -->
+                <div class="flex items-center space-x-2 bg-dark-700/80 px-3 py-1 rounded-full border border-gray-700">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                    <span class="text-xs font-semibold text-gray-300"><span class="text-emerald-400 font-bold">{{.LiveOnline}}</span> Online</span>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-3">
+                <a href="/admin/movies/new" class="bg-blue-600 hover:bg-blue-500 text-white px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all shadow-md shadow-blue-600/20 flex items-center space-x-1.5">
+                    <i class="fas fa-plus"></i>
+                    <span>New Content</span>
+                </a>
+            </div>
+        </header>
+
+        <!-- Flash Notifications -->
+        {{if .FlashError}}
+        <div class="mx-6 mt-4 p-4 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm flex items-center space-x-3">
+            <i class="fas fa-circle-exclamation text-base"></i>
+            <div>{{.FlashError}}</div>
+        </div>
+        {{end}}
+
+        {{if .FlashSuccess}}
+        <div class="mx-6 mt-4 p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center space-x-3">
+            <i class="fas fa-circle-check text-base"></i>
+            <div>{{.FlashSuccess}}</div>
+        </div>
+        {{end}}
+
+        <!-- Page Content Block -->
+        <main class="p-6 flex-1">
+            {{template "content" .}}
+        </main>
+    </div>
+
+    <!-- Mobile Drawer Script -->
+    <script>
+        const btn = document.getElementById('mobile-menu-btn');
+        const sidebar = document.getElementById('sidebar');
+        if (btn && sidebar) {
+            btn.addEventListener('click', () => {
+                sidebar.classList.toggle('hidden');
+                sidebar.classList.toggle('fixed');
+            });
+        }
+    </script>
+</body>
+</html>
+{{end}}

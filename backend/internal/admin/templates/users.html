@@ -1,0 +1,156 @@
+{{define "content"}}
+<div class="space-y-6">
+
+    <div class="flex items-center justify-between">
+        <div>
+            <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                <i class="fas fa-users text-blue-400"></i>
+                <span>User Account Management</span>
+            </h2>
+            <p class="text-xs text-gray-400 mt-0.5">Control registered accounts, freeze fraudulent users, and monitor activity</p>
+        </div>
+    </div>
+
+    <!-- Filters & Search Toolbar -->
+    <div class="bg-dark-800 border border-gray-800 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+        <div class="flex items-center space-x-1.5 text-xs font-semibold">
+            <a href="/admin/users?status=all" class="px-3.5 py-2 rounded-xl transition-colors {{if or (eq .FilterStatus "all") (eq .FilterStatus "")}}bg-blue-600 text-white shadow-sm{{else}}bg-dark-700/60 text-gray-400 hover:text-white{{end}}">All Users</a>
+            <a href="/admin/users?status=active" class="px-3.5 py-2 rounded-xl transition-colors {{if eq .FilterStatus "active"}}bg-emerald-600 text-white shadow-sm{{else}}bg-dark-700/60 text-gray-400 hover:text-white{{end}}">Active</a>
+            <a href="/admin/users?status=frozen" class="px-3.5 py-2 rounded-xl transition-colors {{if eq .FilterStatus "frozen"}}bg-amber-600 text-white shadow-sm{{else}}bg-dark-700/60 text-gray-400 hover:text-white{{end}}">Frozen</a>
+            <a href="/admin/users?status=deleted" class="px-3.5 py-2 rounded-xl transition-colors {{if eq .FilterStatus "deleted"}}bg-rose-600 text-white shadow-sm{{else}}bg-dark-700/60 text-gray-400 hover:text-white{{end}}">Deleted</a>
+        </div>
+
+        <form action="/admin/users" method="GET" class="flex items-center space-x-2">
+            <div class="relative w-full md:w-64">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 pointer-events-none">
+                    <i class="fas fa-search text-xs"></i>
+                </span>
+                <input type="text" name="q" value="{{.SearchQuery}}" placeholder="Search by email, name or UID..."
+                       class="w-full pl-9 pr-3 py-2 bg-dark-700/70 border border-gray-700 rounded-xl text-white placeholder-gray-500 text-xs focus:outline-none focus:border-blue-500 transition-colors">
+            </div>
+            <button type="submit" class="px-3.5 py-2 bg-dark-700 hover:bg-dark-600 text-white rounded-xl text-xs font-bold transition-colors">
+                Search
+            </button>
+        </form>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-dark-800 border border-gray-800 rounded-2xl overflow-hidden shadow-sm">
+        <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs">
+                <thead>
+                    <tr class="bg-dark-900/60 border-b border-gray-800 text-gray-400 uppercase font-bold tracking-wider">
+                        <th class="py-3.5 px-4 w-12 text-center">Avatar</th>
+                        <th class="py-3.5 px-4">User Details</th>
+                        <th class="py-3.5 px-4 text-center">Status</th>
+                        <th class="py-3.5 px-4 text-center">Activity</th>
+                        <th class="py-3.5 px-4 text-right">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                    {{range .Users}}
+                    <tr class="hover:bg-dark-700/30 transition-colors">
+                        <td class="py-3 px-4 text-center">
+                            {{if .Avatar}}
+                            <img src="{{.Avatar}}" alt="avatar" class="w-9 h-9 rounded-full object-cover mx-auto border border-gray-700">
+                            {{else}}
+                            <div class="w-9 h-9 rounded-full bg-blue-600/20 text-blue-400 border border-blue-500/30 flex items-center justify-center font-bold text-xs mx-auto">
+                                <i class="fas fa-user"></i>
+                            </div>
+                            {{end}}
+                        </td>
+                        <td class="py-3 px-4">
+                            <div class="font-bold text-white text-sm flex items-center space-x-2">
+                                <span>{{if .Name}}{{.Name}}{{else}}Anonymous User{{end}}</span>
+                                {{if .IsLiveOnline}}
+                                <span class="relative flex h-2 w-2" title="Online right now">
+                                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                                </span>
+                                {{end}}
+                            </div>
+                            <div class="text-gray-400 text-xs mt-0.5">{{.Email}}</div>
+                            <div class="text-gray-500 text-[10px] font-mono mt-0.5">UID: {{.UID}}</div>
+                        </td>
+                        <td class="py-3 px-4 text-center">
+                            {{if eq .Status "active"}}
+                            <span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">Active</span>
+                            {{else if eq .Status "frozen"}}
+                            <span class="bg-amber-500/20 text-amber-400 border border-amber-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">Frozen</span>
+                            {{else}}
+                            <span class="bg-rose-500/20 text-rose-400 border border-rose-500/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">Deleted</span>
+                            {{end}}
+                        </td>
+                        <td class="py-3 px-4 text-center text-gray-400 text-[11px]">
+                            {{if .LastSeenFormatted}}
+                            <div>Last seen: <span class="text-gray-300 font-semibold">{{.LastSeenFormatted}}</span></div>
+                            {{else}}
+                            <div>Never seen</div>
+                            {{end}}
+                            <div class="text-gray-500 text-[10px]">Joined: {{.CreatedFormatted}}</div>
+                        </td>
+                        <td class="py-3 px-4 text-right space-x-2">
+                            {{if eq .Status "active"}}
+                            <form action="/admin/users/{{.UID}}/status" method="POST" class="inline-block" onsubmit="return confirm('Freeze this user account? They will be locked out immediately.');">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <input type="hidden" name="status" value="frozen">
+                                <button type="submit" class="px-2.5 py-1 bg-amber-600/20 text-amber-400 hover:bg-amber-600 hover:text-white rounded-lg text-xs font-bold border border-amber-500/30 transition-all" title="Freeze">
+                                    <i class="fas fa-lock mr-1"></i> Freeze
+                                </button>
+                            </form>
+                            {{else if eq .Status "frozen"}}
+                            <form action="/admin/users/{{.UID}}/status" method="POST" class="inline-block">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <input type="hidden" name="status" value="active">
+                                <button type="submit" class="px-2.5 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600 hover:text-white rounded-lg text-xs font-bold border border-emerald-500/30 transition-all" title="Unfreeze">
+                                    <i class="fas fa-lock-open mr-1"></i> Unfreeze
+                                </button>
+                            </form>
+                            {{end}}
+
+                            {{if ne .Status "deleted"}}
+                            <form action="/admin/users/{{.UID}}/delete" method="POST" class="inline-block" onsubmit="return confirm('Permanently delete all user history and watchlist data?');">
+                                <input type="hidden" name="csrf_token" value="{{$.CSRFToken}}">
+                                <button type="submit" class="p-1.5 rounded-lg bg-red-600/20 text-red-400 hover:bg-red-600 hover:text-white border border-red-500/30 transition-all text-xs" title="Delete Data">
+                                    <i class="fas fa-trash-can"></i>
+                                </button>
+                            </form>
+                            {{end}}
+                        </td>
+                    </tr>
+                    {{else}}
+                    <tr>
+                        <td colspan="5" class="py-12 text-center text-gray-500 text-sm">
+                            <i class="fas fa-users-slash text-3xl mb-3 text-gray-600 block"></i>
+                            No users found matching your search.
+                        </td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {{if gt .TotalCount .Limit}}
+        <div class="p-4 border-t border-gray-800 bg-dark-900/40 flex items-center justify-between text-xs text-gray-400">
+            <div>
+                Showing <span class="font-bold text-white">{{add .Offset 1}}</span> to <span class="font-bold text-white">{{min (add .Offset .Limit) .TotalCount}}</span> of <span class="font-bold text-white">{{.TotalCount}}</span> users
+            </div>
+            <div class="flex items-center space-x-2">
+                {{if gt .Offset 0}}
+                <a href="/admin/users?offset={{sub .Offset .Limit}}&limit={{.Limit}}&status={{.FilterStatus}}&q={{.SearchQuery}}" class="px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-white font-semibold transition-colors">
+                    Previous
+                </a>
+                {{end}}
+                {{if lt (add .Offset .Limit) .TotalCount}}
+                <a href="/admin/users?offset={{add .Offset .Limit}}&limit={{.Limit}}&status={{.FilterStatus}}&q={{.SearchQuery}}" class="px-3 py-1.5 rounded-lg bg-dark-700 hover:bg-dark-600 text-white font-semibold transition-colors">
+                    Next
+                </a>
+                {{end}}
+            </div>
+        </div>
+        {{end}}
+    </div>
+
+</div>
+{{end}}

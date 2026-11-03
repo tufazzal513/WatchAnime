@@ -1,0 +1,6 @@
+{
+  "name": "MoveX",
+  "description": "MoveX - Modern Anime & Movie Streaming Platform with Go Backend, SSR Admin Panel, and Static Frontend",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
