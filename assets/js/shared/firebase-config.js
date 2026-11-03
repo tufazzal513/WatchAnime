@@ -13,5 +13,6 @@ const firebaseConfig = {
 // When hosted on GitHub Pages, this points requests to your BotKeep Cloud backend domain.
 const MX_API_BASE = (typeof window !== 'undefined' && window.MX_API_BASE) 
   || (typeof localStorage !== 'undefined' && localStorage.getItem('MX_API_BASE')) 
-  || "";
+  || "https://d3g3pb.bot-keep.xyz";
+
 
