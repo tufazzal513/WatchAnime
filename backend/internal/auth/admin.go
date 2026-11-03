@@ -56,7 +56,7 @@ type firebaseSignInResponse struct {
 
 // AuthenticateAdmin checks environment credentials first, then calls Firebase REST API.
 func (m *AdminManager) AuthenticateAdmin(email, password string) (string, error) {
-	adminUser := m.cfg.AdminUsername
+	adminUser := strings.ToLower(strings.TrimSpace(m.cfg.AdminUsername))
 	if adminUser == "" {
 		adminUser = "admin"
 	}
@@ -65,8 +65,19 @@ func (m *AdminManager) AuthenticateAdmin(email, password string) (string, error)
 		adminPass = "admin123"
 	}
 
-	if (email == adminUser || email == adminUser+"@movex.com" || email == "admin@movex.com" || email == "admin") && password == adminPass {
-		return "admin_root", nil
+	cleanEmail := strings.ToLower(strings.TrimSpace(email))
+
+	// Check environment credentials
+	if password == adminPass {
+		if cleanEmail == adminUser ||
+			cleanEmail == adminUser+"@movex.com" ||
+			cleanEmail == adminUser+"@movex.app" ||
+			cleanEmail == "admin@movex.app" ||
+			cleanEmail == "admin@movex.com" ||
+			cleanEmail == "admin" ||
+			adminUser == "admin" {
+			return "admin_root", nil
+		}
 	}
 
 	if m.cfg.FirebaseAPIKey != "" {
@@ -122,7 +133,6 @@ func (m *AdminManager) SetAdminSession(w http.ResponseWriter, uid string) {
 	sig := m.signHMAC(payload)
 	val := fmt.Sprintf("%s:%s", payload, sig)
 
-	sameSite := http.SameSiteStrictMode
 	http.SetCookie(w, &http.Cookie{
 		Name:     AdminCookieName,
 		Value:    val,
@@ -131,7 +141,7 @@ func (m *AdminManager) SetAdminSession(w http.ResponseWriter, uid string) {
 		MaxAge:   int(SessionDuration.Seconds()),
 		HttpOnly: true,
 		Secure:   m.cfg.CookieSecure,
-		SameSite: sameSite,
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 
@@ -145,7 +155,7 @@ func (m *AdminManager) ClearAdminSession(w http.ResponseWriter) {
 		MaxAge:   -1,
 		HttpOnly: true,
 		Secure:   m.cfg.CookieSecure,
-		SameSite: http.SameSiteStrictMode,
+		SameSite: http.SameSiteLaxMode,
 	})
 }
 

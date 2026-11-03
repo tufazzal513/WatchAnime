@@ -46,12 +46,12 @@
         <!-- Form -->
         <form action="/admin/login" method="POST" class="space-y-5">
             <div>
-                <label for="email" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Administrator Email</label>
+                <label for="email" class="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-2">Username or Email</label>
                 <div class="relative">
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none">
-                        <i class="fas fa-envelope text-sm"></i>
+                        <i class="fas fa-user text-sm"></i>
                     </span>
-                    <input type="email" id="email" name="email" required autocomplete="email" value="{{.Email}}" placeholder="admin@movex.app"
+                    <input type="text" id="email" name="email" required autocomplete="username" value="{{if .Email}}{{.Email}}{{else}}admin{{end}}" placeholder="admin"
                            class="w-full pl-10 pr-4 py-3 bg-[#1f2937] border border-gray-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 </div>
             </div>
@@ -62,7 +62,7 @@
                     <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center text-gray-500 pointer-events-none">
                         <i class="fas fa-lock text-sm"></i>
                     </span>
-                    <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="••••••••••••"
+                    <input type="password" id="password" name="password" required autocomplete="current-password" placeholder="admin123"
                            class="w-full pl-10 pr-4 py-3 bg-[#1f2937] border border-gray-700 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors">
                 </div>
             </div>
@@ -73,7 +73,15 @@
             </button>
         </form>
 
-        <div class="mt-8 pt-6 border-t border-gray-800 text-center text-xs text-gray-500">
+        <div class="mt-6 p-3.5 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-300">
+            <div class="font-bold mb-1 flex items-center gap-1.5"><i class="fas fa-key text-blue-400"></i> Default Login Credentials:</div>
+            <div class="flex justify-between items-center text-gray-300 mt-1 font-mono">
+                <span>Username: <strong class="text-white">admin</strong></span>
+                <span>Password: <strong class="text-white">admin123</strong></span>
+            </div>
+        </div>
+
+        <div class="mt-6 pt-4 border-t border-gray-800 text-center text-xs text-gray-500">
             Protected by MoveX HMAC-SHA256 session guard
         </div>
     </div>

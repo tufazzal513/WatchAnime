@@ -8,7 +8,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = 3000;
 const GO_PORT = 3001;
 const GO_HOST = '127.0.0.1';
 
@@ -17,6 +17,11 @@ let goProcess: ChildProcess | null = null;
 function ensureGoBinary(): string {
   const binPath = path.join(__dirname, 'backend', 'bin', 'movex');
   if (fs.existsSync(binPath)) {
+    try {
+      fs.chmodSync(binPath, 0o755);
+    } catch {
+      // ignore permissions error if already set
+    }
     return binPath;
   }
   throw new Error(`MoveX Go binary not found at ${binPath}. Please run: go build -o bin/movex ./cmd/movex inside /backend`);
