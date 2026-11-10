@@ -140,8 +140,14 @@ window.selectSeason = (k) => { currentSeasonKey = k; renderEpRow(); };
 const renderEpRow = () => {
     const movie = allMovies[currentMovieId]; const box = $id('mv-eps'); if (!box) return;
     const eps = movie.seasons[currentSeasonKey] || [];
-    if (!eps.length) { box.innerHTML = '<span class="nf-empty" style="padding:8px">No episodes released yet.</span>'; return; }
+    if (!eps.length) {
+        box.innerHTML = '<span class="nf-empty" style="padding:8px">No episodes released yet.</span>';
+        box.scrollLeft = 0;
+        return;
+    }
     box.innerHTML = `<button class="mv-ep all" onclick="openAllEps()">All</button>` + eps.map((e, i) => `<button class="mv-ep ${i === currentEpIndex && PL.mode ? 'on' : ''}" title="${esc(e.name)}" onclick="playEpisode(${i})">${String(i + 1).padStart(2, '0')}</button>`).join('');
+    // Reset the horizontal row so the All button is fully visible after every render.
+    box.scrollLeft = 0;
 };
 window.openAllEps = () => {
     const movie = allMovies[currentMovieId]; const keys = Object.keys(movie.seasons || {});

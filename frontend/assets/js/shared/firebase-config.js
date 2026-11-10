@@ -9,10 +9,6 @@ const firebaseConfig = {
   appId: "1:850803322721:web:e4f7d47a2612647d0f5f20"
 };
 
-// MoveX Go backend URL deployed on BotKeep Cloud.
-// When hosted on GitHub Pages, this points requests to your BotKeep Cloud backend domain.
-const MX_API_BASE = (typeof window !== 'undefined' && window.MX_API_BASE) 
-  || (typeof localStorage !== 'undefined' && localStorage.getItem('MX_API_BASE')) 
-  || "https://d3g3pb.bot-keep.xyz";
-
-
+// MoveX database server (the Node + SQLite app in /server).  Firebase is now used for Auth only.
+// User app is hosted separately on GitHub Pages and calls the backend domain.
+const MX_API_BASE = "https://d3g3pb.bot-keep.xyz";
