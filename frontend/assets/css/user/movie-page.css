@@ -84,8 +84,8 @@ body.pl-lock{overflow:hidden}
 .mv-pill.on{color:var(--nf)}
 .mv-res h3{font-size:20px;font-weight:700;margin:22px 0 10px}
 .mv-sel select,.mv-sheet-sel{background:#1c1c1c;color:#fff;border:1px solid #444;border-radius:4px;padding:9px 12px;font-size:14px}
-.mv-eps{display:flex;gap:8px;overflow-x:auto;margin-top:12px;padding-bottom:4px}
-.mv-ep{flex:none;min-width:50px;height:46px;border-radius:6px;background:#2a2a2a;color:#fff;font-weight:700;padding:0 14px}
+.mv-eps{display:flex;flex-wrap:nowrap;gap:8px;width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:auto;overflow-y:hidden;margin-top:12px;padding:0 2px 4px 0;scroll-padding-inline:2px;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+.mv-ep{flex:0 0 auto;min-width:50px;height:46px;border-radius:6px;background:#2a2a2a;color:#fff;font-weight:700;padding:0 14px;box-sizing:border-box}
 .mv-ep.all{background:#3a3a3a}.mv-ep.on{background:var(--nf)}
 .mv-foryou{font-size:20px;font-weight:700;padding:18px 16px 10px}
 .mv-side .nf-grid{padding:0 16px}
