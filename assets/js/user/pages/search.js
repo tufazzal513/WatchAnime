@@ -1,7 +1,6 @@
 // --- SEARCH: MovieBox-style (recent, everyone is searching, hot lists, tabs, list results, voice) ---
 const searchInput = document.getElementById('search-input');
 const searchClearBtn = document.getElementById('search-clear-btn');
-const searchGoBtn = document.getElementById('search-go-btn');
 const suggestionsDiv = document.getElementById('search-suggestions');
 let searchTimeout, searchTab = 'all', lastResults = [], lastTerm = '', popularTerms = [], recentOpen = false, hotTab = 'movies';
 
@@ -18,7 +17,7 @@ function matchMovie(m, terms, currentYear) {
 const searchPool = (term) => {
     const terms = termsOf(term), y = new Date().getFullYear(), lt = term.toLowerCase().trim();
     const score = (m) => { const t = String(m.title).toLowerCase(); return t === lt ? 3 : t.startsWith(lt) ? 2 : t.includes(lt) ? 1 : 0; };
-    return mxList().filter(([_, m]) => matchMovie(m, terms, y))
+    return Object.entries(allMovies).filter(([_, m]) => matchMovie(m, terms, y))   // includes upcoming titles (they carry a Coming Soon tag)
         .sort((a, b) => score(b[1]) - score(a[1]) || mxHot(b[0], b[1]) - mxHot(a[0], a[1]));
 };
 const hl = (text, terms) => {
@@ -98,7 +97,7 @@ function showSuggestions(term) {
     if (!phrases.length && !titles.length) { suggestionsDiv.classList.add('hidden'); return; }
     suggestionsDiv.innerHTML =
         phrases.map(p => `<div class="sr-sp" data-term="${esc(p)}"><i class="fas fa-search"></i><span>${hl(p, termsOf(term))}</span></div>`).join('') +
-        titles.map(([id, m]) => `<div class="sr-srow" onclick="selectSuggestion('${id}', '')"><div class="sr-sposter" ${mxT(m)}>${mxImg(m)}</div><div><div class="sr-st">${hl(m.title, termsOf(term))}</div>${mxMeta(m, false)}</div></div>`).join('');
+        titles.map(([id, m]) => `<div class="sr-srow" onclick="selectSuggestion('${id}', '')"><div class="sr-sposter" ${mxT(m)}>${mxImg(m)}${mxSoon(m)}</div><div><div class="sr-st">${hl(m.title, termsOf(term))}</div>${mxMeta(m, false)}</div></div>`).join('');
     suggestionsDiv.classList.remove('hidden');
 }
 window.selectSuggestion = (id, title) => {
@@ -109,17 +108,19 @@ window.selectSuggestion = (id, title) => {
 window.clickSearchResult = (id, title) => { addToHistory(title); showMovieDetails(id); };
 
 // ---------- committed search: tabs + list ----------
-function commitSearch(term) {
+function commitSearch(term, silent) {
     term = (term || '').trim();
     if (!term) return;
     searchInput.value = term; lastTerm = term;
-    searchClearBtn.classList.remove('hidden'); searchGoBtn.classList.add('hidden');
+    searchClearBtn.classList.remove('hidden');
     suggestionsDiv.classList.add('hidden'); searchInput.blur();
     addToHistory(term);
     searchTab = 'all';
     lastResults = searchPool(term);
     logSearchTerm(term, lastResults.length);
     renderSearchResults();
+    if (!silent) MXR.nav(MXR.searchUrl(term), { page: 'search-page' });
+    MXR.setTitle('Search: ' + term);
 }
 window.performSearch = commitSearch;
 
@@ -162,29 +163,29 @@ document.getElementById('sr-tabs').addEventListener('click', (e) => { const b = 
 document.getElementById('search-page').addEventListener('click', (e) => { const c = e.target.closest('[data-term]'); if (c) commitSearch(c.dataset.term); });
 searchInput.addEventListener('input', (e) => {
     const term = e.target.value, has = term.length > 0;
-    searchClearBtn.classList.toggle('hidden', !has); searchGoBtn.classList.toggle('hidden', !has);
+    searchClearBtn.classList.toggle('hidden', !has);
     clearTimeout(searchTimeout);
     searchTimeout = setTimeout(() => { if (!has) renderSearchHistory(); else showSuggestions(term); }, 200);
 });
 searchInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commitSearch(searchInput.value); } });
-searchGoBtn.addEventListener('click', () => commitSearch(searchInput.value));
-searchClearBtn.addEventListener('click', () => { searchInput.value = ''; searchClearBtn.classList.add('hidden'); searchGoBtn.classList.add('hidden'); renderSearchHistory(); searchInput.focus(); });
-searchInput.addEventListener('focus', () => { if (searchInput.value.trim()) searchGoBtn.classList.remove('hidden'); });
+searchClearBtn.addEventListener('click', () => { searchInput.value = ''; searchClearBtn.classList.add('hidden'); renderSearchHistory(); searchInput.focus(); MXR.nav('/search', { page: 'search-page' }, true); MXR.setTitle('Search'); });
 document.addEventListener('click', (e) => { if (!suggestionsDiv.contains(e.target) && !searchInput.contains(e.target)) suggestionsDiv.classList.add('hidden'); });
 
 // voice search (Chrome/Android; hidden where unsupported)
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition, micBtn = document.getElementById('search-mic-btn');
+let recog = null;
 if (SR) {
     micBtn.classList.remove('hidden');
     micBtn.addEventListener('click', () => {
-        const r = new SR(); r.lang = navigator.language || 'en-US'; r.interimResults = false;
+        if (recog) { try { recog.stop(); } catch (e) {} return; }   // tap again while listening = stop
+        const r = recog = new SR(); r.lang = navigator.language || 'en-US'; r.interimResults = false;
         micBtn.classList.add('on');
         r.onresult = (ev) => commitSearch(ev.results[0][0].transcript);
-        r.onend = r.onerror = () => micBtn.classList.remove('on');
-        try { r.start(); } catch (e) { micBtn.classList.remove('on'); }
+        r.onend = r.onerror = () => { micBtn.classList.remove('on'); recog = null; };
+        try { r.start(); } catch (e) { micBtn.classList.remove('on'); recog = null; }
     });
 }
 window.addEventListener('load', loadPopular);
 auth.onAuthStateChanged(u => { if (u) loadPopular(); });
 
-window.resetSearchPage = () => { searchInput.value = ''; searchClearBtn.classList.add('hidden'); searchGoBtn.classList.add('hidden'); lastTerm = ''; renderSearchHistory(); };
+window.resetSearchPage = () => { searchInput.value = ''; searchClearBtn.classList.add('hidden'); lastTerm = ''; renderSearchHistory(); };

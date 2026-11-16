@@ -2,6 +2,13 @@
 const esc = (t) => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 window.mxStats = window.mxStats || {};          // { movieId: {plays, lists} } (read from Firebase 'stats')
 
+// Page scroll lock while a sheet/popup is open (stops the page behind from scrolling). Keeps the scrollbar width so the layout does not jump.
+window.mxScrollLock = (on) => {
+    const b = document.body;
+    if (on) { if (b.classList.contains('sheet-lock')) return; const gap = window.innerWidth - document.documentElement.clientWidth; b.classList.add('sheet-lock'); if (gap > 0) b.style.paddingRight = gap + 'px'; }
+    else { b.classList.remove('sheet-lock'); b.style.paddingRight = ''; }
+};
+
 // broken poster -> neat placeholder with the first letter of the title
 window.mxImgFail = (img) => {
     const p = img.parentElement; img.remove();
@@ -15,9 +22,10 @@ const mxList = () => Object.entries(allMovies).filter(([_, m]) => mxReleased(m))
 const mxInTab = (m, tab) => tab === 'home' || tab === 'all' || MX.tabsOf(m).includes(tab);
 
 // Badges on a poster: type (top-left, only for non-movies) + language (top-right)
+const mxSoon = (m) => mxReleased(m) ? '' : '<div class="nf-soon"><i class="fas fa-clock"></i> Coming Soon</div>';
 const mxBadges = (m) => {
     const ty = MX.typeOf(m), lang = MX.langBadge(m);
-    return (ty !== 'Movie' ? `<span class="nf-badge">${esc(ty.toUpperCase())}</span>` : '') + (lang ? `<span class="nf-lang">${esc(lang)}</span>` : '');
+    return (ty !== 'Movie' ? `<span class="nf-badge">${esc(ty.toUpperCase())}</span>` : '') + (lang ? `<span class="nf-lang">${esc(lang)}${m.dubbed ? ' · Dub' : ''}</span>` : '') + mxSoon(m);
 };
 // Meta line: type icon | star rating | year | industry | first genre
 const mxMeta = (m, withGenre = true) => {

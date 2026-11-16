@@ -17,7 +17,6 @@ const renderHomePage = () => {
             ${o.rank ? `<span class="nf-rank">${o.rank}</span>` : ''}
             <div class="nf-poster" ${mxT(m)}>
                 ${mxImg(m)}${mxBadges(m)}
-                ${o.up ? '<div class="nf-soon"><i class="fas fa-clock"></i> Coming Soon</div>' : ''}
                 ${o.prog ? `<div class="nf-prog"><i style="width:${pct(id)}%"></i></div>` : ''}
                 <div class="nf-hover">
                     <div class="nf-hbtns"><span class="nf-play"><i class="fas fa-play"></i></span><span class="nf-plus ${inMyList(id) ? 'on' : ''}" data-mylist="${id}" onclick="toggleMyList('${id}', event)" title="My List"><i class="fas ${inMyList(id) ? 'fa-check' : 'fa-plus'}"></i></span></div>
@@ -34,13 +33,12 @@ const renderHomePage = () => {
     const q = (s) => s.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
     const cw = Object.entries(progressMap || {}).sort((a, b) => (b[1].at || 0) - (a[1].at || 0)).map(([id]) => [id, allMovies[id]]).filter(([_, m]) => m && mxInTab(m, tab));
-    const mine = Object.keys(myListIds || {}).map(id => [id, allMovies[id]]).filter(([_, m]) => m && mxInTab(m, tab));
     const hot = mxSortHot(rel);
     const fresh = [...rel].sort((a, b) => mxWhen(b[1]) - mxWhen(a[1])).slice(0, 20);
     const top = [...rel].filter(([_, m]) => MX.ratingNum(m) > 0).sort((a, b) => MX.ratingNum(b[1]) - MX.ratingNum(a[1])).slice(0, 20);
     const nm = { home: '', movies: ' Movies', series: ' Series', anime: ' Anime' }[tab];
 
-    let out = row('Continue Watching', cw, { prog: true }) + row('My List', mine)
+    let out = row('Continue Watching', cw, { prog: true })
             + row('Top 10' + nm + ' Today', hot.slice(0, 10), { top: true })
             + row('New Releases', fresh) + row('Top Rated', top) + row('Coming Soon', upcoming, { up: true });
 

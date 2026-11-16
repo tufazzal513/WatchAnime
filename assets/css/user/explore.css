@@ -24,6 +24,8 @@ mark{background:none;color:var(--nfc);font-weight:700}
 /* filter sheet */
 .mx-sheet{position:fixed;inset:0;z-index:95;background:rgba(0,0,0,.66);display:flex;align-items:flex-end;justify-content:center}
 .mx-sheet.hidden{display:none!important}
+.mx-sheet{touch-action:none}
+.mx-sheet-box{overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y}
 .mx-sheet-box{background:#1f1f1f;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:16px 18px 24px;max-height:88vh;overflow:auto}
 .mx-sheet-top{display:flex;justify-content:space-between;align-items:center;font-size:18px;margin-bottom:14px}
 .mx-sheet-top button{color:#bbb;font-size:18px;padding:4px 8px}
@@ -79,9 +81,9 @@ mark{background:none;color:var(--nfc);font-weight:700}
 .sr-bar{position:sticky;top:0;z-index:45;display:flex;align-items:center;gap:6px;padding:10px 12px;background:#141414}
 .sr-back,.sr-mic{flex:none;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:18px;border-radius:50%}
 .sr-mic.hidden,.sr-x.hidden,.sr-go.hidden,.sr-more.hidden{display:none!important}
-.sr-box{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:#2a2a2a;border-radius:8px;padding:0 10px;height:44px}
+.sr-box{flex:1;min-width:0;display:flex;align-items:center;gap:8px;background:#2a2a2a;border-radius:8px;padding:0 8px 0 14px;height:44px}
 .sr-box input{flex:1;min-width:0;background:transparent;border:0;outline:0;color:#fff;font-size:15px;height:100%}
-.sr-ico{color:#aaa;flex:none}.sr-x{color:#999;font-size:16px;flex:none}.sr-go{color:var(--nfc);font-weight:700;font-size:15px;flex:none}
+.sr-x{color:#999;font-size:17px;flex:none;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center}
 .sr-sug{background:#1c1c1c;margin:0 12px;border-radius:8px;overflow:hidden;max-height:60vh;overflow-y:auto}
 .sr-sug.hidden{display:none!important}
 .sr-sp{display:flex;align-items:center;gap:12px;padding:12px 14px;color:#ddd;cursor:pointer}.sr-sp i{color:#888;width:16px;flex:none}
@@ -133,3 +135,15 @@ mark{background:none;color:var(--nfc);font-weight:700}
 @media(max-width:767px){#search-page{padding-top:0!important}}
 /* In My List: readable white text, only the check icon is accent-coloured */
 .mv-pill.on{color:#fff!important}.mv-pill.on i{color:var(--nfc)}
+/* "Coming Soon" strip on very small posters (search suggestions) */
+.sr-sposter .nf-soon{font-size:6px;padding:8px 0 2px;letter-spacing:0}
+.sr-sposter .nf-soon i{display:none}
+
+/* search box: only the clear (x) button on the right; hide the browser's own blue x */
+.sr-box input::-webkit-search-cancel-button,.sr-box input::-webkit-search-decoration{-webkit-appearance:none;display:none}
+/* microphone: same size always; while listening, round waves spread out from it (drawn outside the button, so the layout never changes) */
+.sr-mic{position:relative;transition:background-color .2s,color .2s}
+.sr-mic.on{background:var(--nf);color:#fff}
+.sr-mic.on::before,.sr-mic.on::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--nf);pointer-events:none;animation:srWave 1.6s ease-out infinite}
+.sr-mic.on::after{animation-delay:.8s}
+@keyframes srWave{0%{transform:scale(1);opacity:.7}100%{transform:scale(1.9);opacity:0}}

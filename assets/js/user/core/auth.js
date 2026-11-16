@@ -54,15 +54,20 @@ auth.onAuthStateChanged(async (user) => {
         updateUserProfile(user);
         setupPresence(user);
 
-        const lastPage = localStorage.getItem('last_page_id');
-        const lastMovie = localStorage.getItem('last_movie_id');
-
-        if(lastPage && lastPage !== 'home-page') {
-            if(lastPage !== 'movie-details-page') {
-                showPage(lastPage, false);
-            }
+        // The address bar decides where to start. Titles/filters/search need the movie data, so those wait for it.
+        let route = MXR.parse(location.pathname, location.search);
+        if (route && route.auth) {              // just logged in from /login?next=... -> go to "next" (or home)
+            try { history.replaceState({ page: 'home-page', d: 0 }, '', MXR.toUrl(route.next || '/')); } catch (e) {}
+            route = MXR.parse(location.pathname, location.search);
+        }
+        window.__mxPendingRoute = null;
+        if (!route) {
+            showPage('home-page', false, '/');
+            if (typeof showCustomModal === 'function') showCustomModal('alert', 'Page not found.');
+        } else if (route.movieId || route.browse || (route.page === 'search-page' && route.q)) {
+            window.__mxPendingRoute = route;
         } else {
-            showPage('home-page', true);
+            showPage(route.page, false);
         }
 
         initialLoader.style.opacity = '0';
@@ -77,6 +82,8 @@ auth.onAuthStateChanged(async (user) => {
             userStatusRef.off();
             userStatusRef = null;
         }
+        window.__startupRouteDone = false;      // the next login applies the URL again
+        window.mxAuthRoute();
         authScreen.style.display = 'flex';
         setTimeout(() => authScreen.classList.add('visible'), 10);
         appContainer.classList.add('hidden');
@@ -92,6 +99,10 @@ function updateUserProfile(user) {
     document.getElementById('profile-name').textContent = user.displayName || `${appName} User`;
     document.getElementById('profile-email').textContent = user.email;
     document.getElementById('profile-initial').textContent = user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U';
+    const joined = document.getElementById('pf-joined');
+    if (joined) { const t = Date.parse(user.metadata && user.metadata.creationTime); joined.textContent = isNaN(t) ? '-' : new Date(t).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }); }
+    const appEl = document.getElementById('pf-app'); if (appEl) appEl.textContent = appName;
+    if (typeof renderProfileStats === 'function') renderProfileStats();
 }
 
 const pages = document.querySelectorAll('.page');
@@ -110,20 +121,32 @@ function toggleGlobalHeader(show) {
     }
 }
 
-window.onpopstate = (event) => {
-    // leave fullscreen/stop the inline player first when the phone Back button is used
-    if (typeof stopPlayer === 'function') stopPlayer();
-    if (event.state && event.state.page === 'movie-details-page' && event.state.movieId) {
-        showMovieDetails(event.state.movieId, false);
-    } else if (event.state && event.state.page) {
-        showPage(event.state.page, false);
-    } else {
-        showPage('home-page', false);
-    }
+// Logged out: show /login, /signup or /forgot-password. Any other address becomes /login?next=<that address>
+window.mxAuthRoute = () => {
+    const r = MXR.parse(location.pathname, location.search);
+    let mode = 'login', next = '';
+    if (r && r.auth) { mode = r.auth; next = r.next || ''; }
+    else if (r && r.page !== 'home-page') next = MXR.safeNext(location.pathname + location.search);
+    window.__mxAuthNext = next;
+    toggleAuthMode(mode, true);
+    MXR.nav(MXR.authUrl(mode, next), { page: 'auth' }, true);
+    MXR.setTitle(MXR.authTitle(mode));
 };
 
-const showPage = (pageId, pushToHistory = true) => {
+// URL of a page that has no extra data of its own
+window.mxPageUrl = (pageId) => MXR.pagePath(pageId);
+
+// The URL is the source of truth: Back/Forward just re-run the route that is in the address bar
+window.onpopstate = () => {
+    // leave fullscreen/stop the inline player first when the phone Back button is used
+    if (typeof stopPlayer === 'function') stopPlayer();
+    if (!auth.currentUser) return window.mxAuthRoute();
+    if (typeof mxApplyRoute === 'function') mxApplyRoute(MXR.parse(location.pathname, location.search), false);
+};
+
+const showPage = (pageId, pushToHistory = true, urlOverride) => {
     if (typeof closeSheet === 'function') closeSheet();
+    if (typeof closeBrowseFilters === 'function' && document.getElementById('br-sheet')) closeBrowseFilters();
     pages.forEach(page => page.classList.toggle('active', page.id === pageId));
     navBtns.forEach(btn => {
         btn.classList.toggle('text-blue-500', btn.dataset.page === pageId);
@@ -131,14 +154,16 @@ const showPage = (pageId, pushToHistory = true) => {
     });
 
     // Handle Global App Bar visibility based on active page
-    const hideHeaderPages = ['movie-details-page', 'category-movies-page', 'search-page'];
+    const hideHeaderPages = ['movie-details-page', 'category-movies-page', 'search-page', 'history-page', 'notifications-page'];
     toggleGlobalHeader(!hideHeaderPages.includes(pageId));
 
-    localStorage.setItem('last_page_id', pageId);
-    if (pushToHistory) history.pushState({ page: pageId }, null, "");
+    MXR.nav(urlOverride || window.mxPageUrl(pageId), { page: pageId }, !pushToHistory);
+    MXR.setTitle(pageId === 'category-movies-page' && window.mxBrowseTitle ? window.mxBrowseTitle() : MXR.pageTitle(pageId));
 
     if (pageId === 'search-page' && typeof resetSearchPage === 'function') resetSearchPage();
+    if (pageId === 'history-page' && typeof renderHistoryPage === 'function') { renderHistoryPage(); window.scrollTo(0, 0); }
 };
 
-window.goBack = () => history.back();
+// in-app Back arrow: go back if the app pushed an entry, otherwise (landed on a deep link) go home
+window.goBack = () => { if (history.state && history.state.d > 0) history.back(); else showPage('home-page', false); };
 navBtns.forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
