@@ -1,4 +1,4 @@
-# WAnime v3.4 User Frontend
+# WAnime v2.3 User Frontend
 
 This folder is the User App intended for GitHub Pages.
 
@@ -38,7 +38,7 @@ The title slug is only for looks; the `<id>` decides which title opens. Old `#mo
 
 ## Hosting (deep links must survive a refresh)
 Because the paths are real, the host must serve `index.html` for unknown paths:
-- **GitHub Pages** (this repository) - `404.html` (included) does this. Keep `404.html`, `index.html` and `.nojekyll` in the repository root. Upload the *contents* of this folder, not the folder itself. It works both on a project site (`https://<user>.github.io/<repo>/`) and on a custom domain root: `index.html` detects the mount point (`/<repo>/` vs `/`) at runtime, sets `<base>` accordingly and keeps the clean URLs inside that folder. If the repository is renamed, update `REPO` in `index.html` and in `404.html`.
+- **GitHub Pages + custom domain** - `404.html` (included) does this. Keep `404.html`, `index.html` and `.nojekyll` in the repository root. Upload the *contents* of this folder, not the folder itself. The site must live at the domain root (custom domain), not in a `/repo-name/` sub-folder.
 - **Apache / InfinityFree / cPanel** - `.htaccess` (included).
 - **Netlify / Cloudflare Pages** - `_redirects` (included).
 - **Firebase Hosting** - `firebase.json` already has the rewrite.

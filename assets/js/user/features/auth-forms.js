@@ -148,7 +148,7 @@ forgotForm.addEventListener('submit', async (e) => {
 
 window.handleLogout = () => {
     auth.signOut();
-    try { history.replaceState({ page: 'home-page', d: 0 }, '', MXR.toUrl('/')); } catch (e) {}
+    try { history.replaceState({ page: 'home-page', d: 0 }, '', '/'); } catch (e) {}
     localStorage.removeItem('last_page_id');
     localStorage.removeItem('last_movie_id');
 };

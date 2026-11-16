@@ -187,7 +187,7 @@ window.openMoreInfo = () => {
     const row = (k, v) => v ? `<div class="mv-kv"><span>${k}</span><b>${esc(v)}</b></div>` : '';
     openSheet('Info', `<h2 class="mv-sheet-t">${esc(m.title)}</h2>${row('Type', MX.typeOf(m))}${row('Industry / Country', m.industry)}${row('Language', MX.langsOf(m).join(', ') + (m.dubbed && MX.langsOf(m).length ? ' (Dubbed)' : ''))}${row('Genres', MX.genresOf(m).join(', '))}${row('Rating', m.rating)}${row('Year', m.year)}${m.contentType === 'series' && m.seasons ? row('Seasons', Object.keys(m.seasons).length) : ''}${row('Cast', m.cast)}<p class="mv-desc">${esc(m.description || 'No description available for this title.')}</p>`);
 };
-const shareUrl = () => location.origin + MXR.toUrl(MXR.movieUrl(currentMovieId, (allMovies[currentMovieId] || {}).title));
+const shareUrl = () => location.origin + MXR.movieUrl(currentMovieId, (allMovies[currentMovieId] || {}).title);
 window.openShare = () => {
     const m = allMovies[currentMovieId]; if (!m) return; const u = encodeURIComponent(shareUrl()), t = encodeURIComponent(m.title + ' - watch now');
     openSheet('Share', `<div class="mv-share">

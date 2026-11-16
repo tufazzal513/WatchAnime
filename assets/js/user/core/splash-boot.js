@@ -11,19 +11,6 @@
     };
     const TABS = ['all', 'movies', 'series', 'anime'], SORTS = ['suggested', 'new', 'top', 'az'];
     const ID_RE = /^[A-Za-z0-9_\-]+$/;
-    // Where the app is mounted: "/" at a domain root, "/WatchAnime/" on a GitHub Pages project site.
-    // Every URL the app shows is kept "app-relative" ("/search") and only this prefix is added when it is
-    // written to the address bar, so the same code works on both kinds of host.
-    const ROOT = (function () { const r = window.MX_ROOT || '/'; return r.charAt(r.length - 1) === '/' ? r : r + '/'; })();
-    const toUrl = (p) => ROOT.replace(/\/$/, '') + (String(p).charAt(0) === '/' ? p : '/' + p);
-    const stripRoot = (p) => {
-        p = String(p || '/');
-        if (ROOT === '/') return p;
-        const bare = ROOT.slice(0, -1);                      // "/WatchAnime"
-        if (p === bare) return '/';
-        if (p.indexOf(ROOT) === 0) return '/' + p.slice(ROOT.length);
-        return p;
-    };
     const enc = encodeURIComponent;
     const slug = (s) => String(s == null ? '' : s).normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
         .replace(/&/g, ' and ').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
@@ -35,13 +22,12 @@
     // only same-site app paths are allowed as the "go here after login" target (no open redirects)
     const safeNext = (n) => {
         if (!n || n[0] !== '/' || n[1] === '/' || n.indexOf('\\') > -1) return '';
-        const rel = stripRoot(n.split('?')[0]) + (n.indexOf('?') < 0 ? '' : '?' + n.slice(n.indexOf('?') + 1));
-        const i = rel.indexOf('?'), r = MXR.parse(i < 0 ? rel : rel.slice(0, i), i < 0 ? '' : rel.slice(i));
-        return r && !r.auth && rel !== '/' ? rel : '';
+        const i = n.indexOf('?'), r = MXR.parse(i < 0 ? n : n.slice(0, i), i < 0 ? '' : n.slice(i));
+        return r && !r.auth && n !== '/' ? n : '';
     };
 
     const MXR = {
-        FILTERS, slug, fslug, safeNext, toUrl, stripRoot, root: ROOT,
+        FILTERS, slug, fslug, safeNext,
         authUrl: (mode, next) => (AUTH_ROUTES[mode] || '/login') + qs({ next: safeNext(next) }),
         authTitle: (mode) => AUTH_TITLES[mode] || 'Log In',
         pagePath: (pageId) => PAGES[pageId] || '/',
@@ -56,7 +42,7 @@
             return '/browse' + qs(o);
         },
         parse: (pathname, search) => {
-            let segs; try { segs = stripRoot(pathname || '/').split('/').filter(Boolean).map(decodeURIComponent); } catch (e) { return null; }
+            let segs; try { segs = String(pathname || '/').split('/').filter(Boolean).map(decodeURIComponent); } catch (e) { return null; }
             const q = new URLSearchParams(search || '');
             if (segs.length && /^index\.html?$/i.test(segs[0])) segs.shift();
             if (!segs.length) return { page: 'home-page' };
@@ -75,10 +61,9 @@
         },
         // push (or replace) a history entry. `d` counts how deep the in-app history is, so Back never leaves the site by mistake
         nav: (url, state, replace) => {
-            const target = toUrl(url);
-            const cur = history.state || {}, same = (location.pathname + location.search) === target, rep = !!replace || same;
+            const cur = history.state || {}, same = (location.pathname + location.search) === url, rep = !!replace || same;
             const st = Object.assign({}, state, { d: rep ? (cur.d || 0) : (cur.d || 0) + 1 });
-            try { if (rep) history.replaceState(st, '', target); else history.pushState(st, '', target); } catch (e) {}
+            try { if (rep) history.replaceState(st, '', url); else history.pushState(st, '', url); } catch (e) {}
         },
         setTitle: (t) => { document.title = t ? t + ' - MoveX' : 'MoveX - Anime, Series & Movies'; },
         // old links (#/movie/<id>, #movie=<id>, #/search ...) -> real paths
@@ -88,7 +73,7 @@
             if (m) url = '/movie/' + m[1];
             else { const p = h.replace(/^#/, '').replace(/\/+$/, ''); if (p === '/home') url = '/'; else for (const id in PAGES) if (PAGES[id] !== '/' && PAGES[id] === p) { url = PAGES[id]; break; } }
             if (!url) return false;
-            try { history.replaceState(history.state, '', toUrl(url)); } catch (e) {} return true;
+            try { history.replaceState(history.state, '', url); } catch (e) {} return true;
         }
     };
     window.MXR = MXR;
