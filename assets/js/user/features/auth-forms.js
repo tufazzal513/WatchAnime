@@ -17,7 +17,7 @@ window.togglePasswordVisibility = function(inputId, btn) {
     }
 };
 
-window.toggleAuthMode = (mode) => {
+window.toggleAuthMode = (mode, silent) => {
     authError.textContent = '';
     authError.className = "text-red-400 text-xs text-center mt-4 min-h-[20px]";
 
@@ -40,6 +40,8 @@ window.toggleAuthMode = (mode) => {
         document.getElementById('toggle-text-signup').classList.add('hidden');
         document.getElementById('toggle-text-login').classList.remove('hidden');
     }
+    // /login, /signup, /forgot-password (keeps ?next=... so the visitor lands where they wanted after logging in)
+    if (!silent) { MXR.nav(MXR.authUrl(mode, window.__mxAuthNext), { page: 'auth' }); MXR.setTitle(MXR.authTitle(mode)); }
 };
 
 signupForm.addEventListener('submit', (e) => {
@@ -146,6 +148,7 @@ forgotForm.addEventListener('submit', async (e) => {
 
 window.handleLogout = () => {
     auth.signOut();
+    try { history.replaceState({ page: 'home-page', d: 0 }, '', MXR.toUrl('/')); } catch (e) {}
     localStorage.removeItem('last_page_id');
     localStorage.removeItem('last_movie_id');
 };

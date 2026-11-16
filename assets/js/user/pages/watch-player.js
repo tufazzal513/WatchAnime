@@ -14,19 +14,21 @@ function linkType(u) {
     if (/\.m3u8(\?|#|$)/.test(l)) return 'hls';
     return 'direct';
 }
+// A title that is still upcoming cannot be played (same rule the lists use: mxReleased). Checked live, so it unlocks by itself at the release time.
+const isLocked = (m) => !!m && !mxReleased(m);
 const plToast = (msg) => { const t = $id('pl-toast'); if (!t) return; t.textContent = msg; t.classList.add('on'); clearTimeout(plToast._t); plToast._t = setTimeout(() => t.classList.remove('on'), 2200); };
 
 // ---------- sheets (More Info / Share / All episodes) ----------
-window.closeSheet = () => { const s = $id('mv-sheet'); if (s) s.remove(); };
+window.closeSheet = () => { const s = $id('mv-sheet'); if (s) s.remove(); mxScrollLock(false); };
 const openSheet = (title, html) => {
     closeSheet();
     const d = document.createElement('div'); d.id = 'mv-sheet'; d.className = 'mv-sheet';
     d.innerHTML = `<div class="mv-sheet-bg" onclick="closeSheet()"></div><div class="mv-sheet-box"><div class="mv-sheet-h"><b>${esc(title)}</b><button onclick="closeSheet()" aria-label="Close"><i class="fas fa-times"></i></button></div><div class="mv-sheet-b">${html}</div></div>`;
-    document.body.appendChild(d);
+    document.body.appendChild(d); mxScrollLock(true);
 };
 
 // ---------- details page ----------
-window.showMovieDetails = (movieId, push = true) => {
+window.showMovieDetails = (movieId, push = true, opts) => {
     if (!movieId || !allMovies[movieId]) return;
     // the list is "lite": load this title's episodes + links first (tiny request, cached), then show the page
     const cur = allMovies[movieId];
@@ -44,12 +46,8 @@ window.showMovieDetails = (movieId, push = true) => {
     currentMovieId = movieId;
     toggleGlobalHeader(false);
 
-    const now = new Date();
-    let upcoming = false, releaseString = '';
-    if (movie.isUpcoming && movie.releaseDate) {
-        const rd = new Date(movie.releaseDate);
-        if (rd > now) { upcoming = true; releaseString = rd.toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }); }
-    }
+    const upcoming = isLocked(movie), relMs = getReleaseMs(movie);
+    const releaseString = upcoming && relMs ? new Date(relMs).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
     const isSeries = movie.contentType === 'series' && movie.seasons && Object.keys(movie.seasons).length;
     const seasonKeys = isSeries ? Object.keys(movie.seasons) : [];
     PL.resumeAt = 0; PL.started = false;
@@ -59,11 +57,20 @@ window.showMovieDetails = (movieId, push = true) => {
         if (isSeries && pr.season && movie.seasons[pr.season] && movie.seasons[pr.season][pr.ep]) { currentSeasonKey = pr.season; currentEpIndex = pr.ep; }
         if (pr.t > 5) PL.resumeAt = pr.t;
     }
+    // a link like /movie/<id>/<name>?s=2&e=5 opens that season / episode
+    if (opts && isSeries && opts.season > 0) {
+        const sk = seasonKeys[opts.season - 1], ei = (opts.ep > 0 ? opts.ep : 1) - 1;
+        if (sk && movie.seasons[sk] && movie.seasons[sk][ei]) {
+            currentSeasonKey = sk; currentEpIndex = ei; PL.resumeAt = 0;
+            const p2 = progressMap[movieId]; if (p2 && p2.season === sk && p2.ep === ei && p2.t > 5) PL.resumeAt = p2.t;
+        }
+    }
     const cover = movie.coverUrl || movie.posterUrl || '';
-    const similar = Object.entries(allMovies).filter(([id, m]) => id !== movieId && (!m.isUpcoming || new Date(m.releaseDate) <= now))
-        .map(([id, m]) => [id, m, (m.category && m.category === movie.category ? 2 : 0) + (m.contentType === movie.contentType ? 1 : 0)])
+    const similar = Object.entries(allMovies).filter(([id, m]) => id !== movieId && mxReleased(m))
+        .map(([id, m]) => { const mg = MX.genresOf(movie), ml = MX.langsOf(movie); return [id, m, MX.genresOf(m).filter(g => mg.includes(g)).length * 3 + (m.industry && m.industry === movie.industry ? 2 : 0) + MX.langsOf(m).filter(l => ml.includes(l)).length + (MX.typeOf(m) === MX.typeOf(movie) ? 1 : 0)]; })
         .sort((a, b) => b[2] - a[2]).slice(0, 30);
-    const meta = `<span class="mv-ico"><i class="fas ${isSeries ? 'fa-tv' : 'fa-film'}"></i></span>${movie.rating ? `<span><i class="fas fa-star" style="color:#facc15"></i> ${esc(movie.rating)}</span>` : ''}${movie.year ? `<span>${esc(movie.year)}</span>` : ''}${movie.category ? `<span>${esc(movie.category)}</span>` : ''}<span>${isSeries ? seasonKeys.length + (seasonKeys.length > 1 ? ' seasons' : ' season') : 'Movie'}</span>`;
+    const mvLangs = MX.langsOf(movie), mvGenres = MX.genresOf(movie);
+    const meta = `<span class="mv-ico"><i class="fas ${isSeries ? 'fa-tv' : 'fa-film'}"></i></span>${movie.rating ? `<span><i class="fas fa-star" style="color:#facc15"></i> ${esc(movie.rating)}</span>` : ''}${movie.year ? `<span>${esc(movie.year)}</span>` : ''}<span>${esc(MX.typeOf(movie))}</span>${movie.industry ? `<span>${esc(movie.industry)}</span>` : ''}${mvLangs.length ? `<span>${esc(mvLangs.join(', '))}${movie.dubbed ? ' (Dubbed)' : ''}</span>` : ''}${mvGenres.length ? `<span>${esc(mvGenres.join(', '))}</span>` : ''}<span>${isSeries ? seasonKeys.length + (seasonKeys.length > 1 ? ' seasons' : ' season') : 'Movie'}</span>`;
 
     $id('movie-details-content').innerHTML = `
     <div class="mv-wrap">
@@ -75,7 +82,7 @@ window.showMovieDetails = (movieId, push = true) => {
         <div class="pl-shade"></div>
         <button class="pl-back" onclick="goBack()" aria-label="Back"><i class="fas fa-arrow-left"></i></button>
         <div class="pl-title" id="pl-title">${esc(movie.title)}</div>
-        ${upcoming ? `<div class="pl-soon"><i class="fas fa-clock"></i> Drops: ${esc(releaseString)}</div>` : `<button class="pl-big" id="pl-big" onclick="startPlayback()" aria-label="Play"><i class="fas fa-play"></i></button>`}
+        ${upcoming ? `<div class="pl-soon"><i class="fas fa-clock"></i> ${releaseString ? 'Drops: ' + esc(releaseString) : 'Coming Soon'}</div>` : `<button class="pl-big" id="pl-big" onclick="startPlayback()" aria-label="Play"><i class="fas fa-play"></i></button>`}
         <div class="pl-center" id="pl-center">
           <button onclick="plSkip(-10)" aria-label="Back 10s"><i class="fas fa-undo-alt"></i><em>10</em></button>
           <button class="pl-pp" onclick="plToggle()" aria-label="Play/Pause"><i id="pl-pp-i" class="fas fa-play"></i></button>
@@ -113,7 +120,7 @@ window.showMovieDetails = (movieId, push = true) => {
         </div>
         ${isSeries ? `<div class="mv-res"><h3>Resources</h3>
           <div class="mv-sel">${seasonKeys.length ? `<select id="mv-season" onchange="selectSeason(this.value)">${seasonKeys.map(k => `<option value="${esc(k)}" ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}</div>
-          <div class="mv-eps no-scrollbar" id="mv-eps"></div></div>` : ''}
+          <div class="mv-eps" id="mv-eps"></div></div>` : ''}
       </div>
 
       <div class="mv-side"><div class="mv-tabs"><span>For you</span></div>
@@ -126,8 +133,9 @@ window.showMovieDetails = (movieId, push = true) => {
     window.scrollTo(0, 0);
     localStorage.setItem('last_page_id', 'movie-details-page');
     localStorage.setItem('last_movie_id', movieId);
-    if (push) history.pushState({ page: 'movie-details-page', movieId }, null, '');
-    if (location.hash.indexOf('movie=') > -1) history.replaceState(history.state, '', location.pathname + location.search);
+    const epq = (opts && opts.season > 0 && isSeries) ? [seasonKeys.indexOf(currentSeasonKey) + 1, currentEpIndex + 1] : [0, 0];
+    MXR.nav(MXR.movieUrl(movieId, movie.title, epq[0], epq[1]), { page: 'movie-details-page', movieId }, !push);
+    MXR.setTitle(movie.title);
 
     plBind();
     $id('pl').classList.toggle('is-series', !!isSeries);
@@ -140,25 +148,30 @@ window.selectSeason = (k) => { currentSeasonKey = k; renderEpRow(); };
 const renderEpRow = () => {
     const movie = allMovies[currentMovieId]; const box = $id('mv-eps'); if (!box) return;
     const eps = movie.seasons[currentSeasonKey] || [];
+    if (isLocked(movie)) { box.innerHTML = '<span class="nf-empty" style="padding:8px">Episodes will be available after release.</span>'; return; }
     if (!eps.length) {
         box.innerHTML = '<span class="nf-empty" style="padding:8px">No episodes released yet.</span>';
-        box.scrollLeft = 0;
         return;
     }
-    box.innerHTML = `<button class="mv-ep all" onclick="openAllEps()">All</button>` + eps.map((e, i) => `<button class="mv-ep ${i === currentEpIndex && PL.mode ? 'on' : ''}" title="${esc(e.name)}" onclick="playEpisode(${i})">${String(i + 1).padStart(2, '0')}</button>`).join('');
-    // Reset the horizontal row so the All button is fully visible after every render.
-    box.scrollLeft = 0;
+
+    // Keep "All" fixed in the row. Only the episode buttons are horizontally scrollable.
+    // Recreating the inner scroller also resets its position when the season changes.
+    box.innerHTML = `<button class="mv-ep all" type="button" onclick="openAllEps()">All</button>
+        <div class="mv-eps-scroll no-scrollbar" aria-label="Episodes">
+            ${eps.map((e, i) => `<button class="mv-ep ${i === currentEpIndex && PL.mode ? 'on' : ''}" type="button" title="${esc(e.name)}" onclick="playEpisode(${i})">${String(i + 1).padStart(2, '0')}</button>`).join('')}
+        </div>`;
 };
 window.openAllEps = () => {
-    const movie = allMovies[currentMovieId]; const keys = Object.keys(movie.seasons || {});
+    const movie = allMovies[currentMovieId]; if (isLocked(movie)) return plToast('Coming soon'); const keys = Object.keys(movie.seasons || {});
     const grid = () => (movie.seasons[currentSeasonKey] || []).map((e, i) => `<button class="mv-ep ${i === currentEpIndex ? 'on' : ''}" onclick="closeSheet();playEpisode(${i})">${String(i + 1).padStart(2, '0')}</button>`).join('');
     openSheet('Episodes', `${keys.length > 1 ? `<select class="mv-sheet-sel" onchange="selectSeason(this.value);document.getElementById('mv-sheet-grid').innerHTML=window.__epGrid()">${keys.map(k => `<option ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}<div class="mv-sheet-grid" id="mv-sheet-grid">${grid()}</div>`);
     window.__epGrid = grid;
 };
 window.plEpsBtn = () => { if (plIsFs()) plFs(); openAllEps(); };
 window.playEpisode = (i) => {
-    const movie = allMovies[currentMovieId]; const eps = movie.seasons && movie.seasons[currentSeasonKey]; if (!eps || !eps[i]) return;
+    const movie = allMovies[currentMovieId]; if (isLocked(movie)) return plToast('Coming soon'); const eps = movie.seasons && movie.seasons[currentSeasonKey]; if (!eps || !eps[i]) return;
     currentEpIndex = i; PL.resumeAt = 0;
+    MXR.nav(MXR.movieUrl(currentMovieId, movie.title, Object.keys(movie.seasons).indexOf(currentSeasonKey) + 1, i + 1), { page: 'movie-details-page', movieId: currentMovieId }, true);
     const pr = progressMap[currentMovieId]; if (pr && pr.season === currentSeasonKey && pr.ep === i && pr.t > 5) PL.resumeAt = pr.t;
     const sel = $id('mv-season'); if (sel) sel.value = currentSeasonKey;
     renderEpRow(); window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -172,9 +185,9 @@ window.plPrevEp = () => { if (currentEpIndex > 0) playEpisode(currentEpIndex - 1
 window.openMoreInfo = () => {
     const m = allMovies[currentMovieId]; if (!m) return;
     const row = (k, v) => v ? `<div class="mv-kv"><span>${k}</span><b>${esc(v)}</b></div>` : '';
-    openSheet('Info', `<h2 class="mv-sheet-t">${esc(m.title)}</h2>${row('Type', m.contentType === 'series' ? 'Series' : 'Movie')}${row('Rating', m.rating)}${row('Year', m.year)}${row('Category', m.category)}${m.contentType === 'series' && m.seasons ? row('Seasons', Object.keys(m.seasons).length) : ''}${row('Cast', m.cast)}<p class="mv-desc">${esc(m.description || 'No description available for this title.')}</p>`);
+    openSheet('Info', `<h2 class="mv-sheet-t">${esc(m.title)}</h2>${row('Type', MX.typeOf(m))}${row('Industry / Country', m.industry)}${row('Language', MX.langsOf(m).join(', ') + (m.dubbed && MX.langsOf(m).length ? ' (Dubbed)' : ''))}${row('Genres', MX.genresOf(m).join(', '))}${row('Rating', m.rating)}${row('Year', m.year)}${m.contentType === 'series' && m.seasons ? row('Seasons', Object.keys(m.seasons).length) : ''}${row('Cast', m.cast)}<p class="mv-desc">${esc(m.description || 'No description available for this title.')}</p>`);
 };
-const shareUrl = () => location.origin + location.pathname + '#movie=' + currentMovieId;
+const shareUrl = () => location.origin + MXR.toUrl(MXR.movieUrl(currentMovieId, (allMovies[currentMovieId] || {}).title));
 window.openShare = () => {
     const m = allMovies[currentMovieId]; if (!m) return; const u = encodeURIComponent(shareUrl()), t = encodeURIComponent(m.title + ' - watch now');
     openSheet('Share', `<div class="mv-share">
@@ -195,26 +208,22 @@ window.reportTitle = () => {
     const link = m.contentType === 'series' ? getLink(eps[currentEpIndex]) : getLink(m);
     reportBrokenLink('user-report', link || ''); closeSheet(); plToast('Thanks, reported');
 };
-window.addEventListener('hashchange', () => {
-    const mt = /[#&]movie=([A-Za-z0-9_\-]+)/.exec(location.hash || '');
-    if (mt && allMovies[mt[1]] && auth.currentUser) showMovieDetails(mt[1], true);
-});
-
 // ---------- player engine ----------
 const vid = () => $id('pl-video');
 const plCur = () => PL.mode === 'yt' && PL.yt && PL.yt.getCurrentTime ? PL.yt.getCurrentTime() : PL.mode === 'vimeo' ? (PL._vt || 0) : (vid() ? vid().currentTime : 0);
 const plDurV = () => PL.mode === 'yt' && PL.yt && PL.yt.getDuration ? PL.yt.getDuration() : PL.mode === 'vimeo' ? (PL._vd || 0) : (vid() ? vid().duration : 0);
 const setPlaying = (p) => { PL.playing = p; const i = $id('pl-pp-i'); if (i) i.className = p ? 'fas fa-pause' : 'fas fa-play'; const pl = $id('pl'); if (pl) pl.classList.toggle('playing', p); if (p) { plShowUI(); wakeOn(); } else { wakeOff(); plShowUI(true); } };
-const spin = (on) => { const s = $id('pl-spin'); if (s) s.style.display = on ? 'block' : 'none'; };
+const spin = (on) => { const s = $id('pl-spin'); if (s) s.style.display = on ? 'block' : 'none'; const pl = $id('pl'); if (pl) pl.classList.toggle('loading', !!on); };
 const wakeOn = async () => { try { if (navigator.wakeLock && !PL.wake) { PL.wake = await navigator.wakeLock.request('screen'); PL.wake.addEventListener('release', () => PL.wake = null); } } catch (e) {} };
 const wakeOff = () => { try { if (PL.wake) PL.wake.release(); } catch (e) {} PL.wake = null; };
 
 window.startPlayback = () => {
-    const m = allMovies[currentMovieId]; if (!m) return;
+    const m = allMovies[currentMovieId]; if (!m) return; if (isLocked(m)) return plToast('Coming soon');
     if (m.contentType === 'series' && m.seasons) { const e = epList()[currentEpIndex]; if (!e) return plToast('No episodes yet'); plLoad(getLink(e), e.name); renderEpRow(); }
     else plLoad(getLink(m), null);
 };
 const plLoad = (url, epName) => {
+    if (isLocked(allMovies[currentMovieId])) { plToast('Coming soon'); return; }
     if (!url) { plShowErr('Video link is not available right now.'); return; }
     plTeardown(); $id('pl-err').classList.remove('on'); plCancelNext();
     const pl = $id('pl'); pl.classList.add('started'); PL.started = true; PL.upgraded = false;
@@ -380,4 +389,4 @@ document.addEventListener('keydown', (e) => {
     else if (k === 'f') plFs(); else if (k === 'm') plMute(); else if (k === 'arrowup' && vid()) { vid().volume = Math.min(1, vid().volume + .1); } else if (k === 'arrowdown' && vid()) { vid().volume = Math.max(0, vid().volume - .1); }
 });
 window.addEventListener('pagehide', () => { if (PL.started) plSave(true); });
-window.goBack = () => { if (plIsFs()) return plExitFs(); if (history.state && history.state.page) history.back(); else showPage('home-page'); };
+window.goBack = () => { if (plIsFs()) return plExitFs(); if (history.state && history.state.d > 0) history.back(); else showPage('home-page', false); };

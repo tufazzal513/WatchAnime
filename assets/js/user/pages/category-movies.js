@@ -1,7 +1,20 @@
 // --- BROWSE PAGE: filtered titles, Netflix-style rows + All Titles grid ---
 const BR_DEF = { genre: '', industry: '', language: '', type: '', year: '', tab: 'all', sort: 'suggested' };
 let browse = { ...BR_DEF };
-window.openBrowse = (f) => { browse = { ...BR_DEF, ...(f || {}) }; document.getElementById('br-sort').value = browse.sort; renderBrowse(); showPage('category-movies-page'); window.scrollTo(0, 0); };
+window.openBrowse = (f, push = true) => { browse = { ...BR_DEF, ...(f || {}) }; document.getElementById('br-sort').value = browse.sort; renderBrowse(); showPage('category-movies-page', push, MXR.browseUrl(browse)); window.scrollTo(0, 0); };
+window.mxBrowseTitle = () => [browse.genre, browse.industry, browse.language, browse.type, browse.year].filter(Boolean).join(' · ') || 'Browse';
+// "action" in a URL -> the real value ("Action") used in the data
+const mxFilterValues = (k, m) => k === 'genre' ? MX.genresOf(m) : k === 'language' ? MX.langsOf(m) : k === 'type' ? [MX.typeOf(m)] : k === 'industry' ? (m.industry ? [m.industry] : []) : (m.year ? [String(m.year)] : []);
+window.mxResolveFilters = (b) => {
+    const out = { ...b };
+    MXR.FILTERS.forEach(k => {
+        if (!b[k]) return;
+        const want = MXR.fslug(b[k]); let hit = null;
+        mxList().some(([_, m]) => mxFilterValues(k, m).some(v => { if (MXR.fslug(v) === want) { hit = String(v); return true; } return false; }));
+        out[k] = hit || b[k];
+    });
+    return out;
+};
 window.openCategoryMovies = (name) => openBrowse({ genre: name });
 window.setBrowseTab = (t) => { browse.tab = t; renderBrowse(); };
 window.setBrowseSort = (s) => { browse.sort = s; renderBrowse(); };
@@ -31,6 +44,8 @@ const renderBrowse = () => {
     } else rowsBox.innerHTML = '';
     document.getElementById('br-all-title').classList.toggle('hidden', !rowsBox.innerHTML);
 
+    if (document.getElementById('category-movies-page').classList.contains('active')) { MXR.nav(MXR.browseUrl(browse), { page: 'category-movies-page' }, true); MXR.setTitle(window.mxBrowseTitle()); }
+
     const grid = document.getElementById('category-movies-grid');
     if (sorted.length) mxChunk(grid, sorted, ([id, m]) => mxGridCard(id, m), 24);
     else grid.innerHTML = '<div class="nf-empty" style="grid-column:1/-1"><i class="fas fa-film" style="font-size:38px;display:block;margin-bottom:10px"></i>No titles match these filters.</div>';
@@ -47,8 +62,8 @@ window.openBrowseFilters = () => {
         fld('bf-type', 'Type', has(MX.TYPES, (m, x) => MX.typeOf(m) === x)) + fld('bf-industry', 'Industry / Country', has(MX.INDUSTRIES, (m, x) => m.industry === x)) +
         fld('bf-genre', 'Genre', has(MX.GENRES, (m, x) => MX.genresOf(m).includes(x))) + fld('bf-language', 'Language', has(MX.LANGUAGES, (m, x) => MX.langsOf(m).includes(x))) + fld('bf-year', 'Year', years);
     ['type', 'industry', 'genre', 'language', 'year'].forEach(k => { document.getElementById('bf-' + k).value = browse[k]; });
-    document.getElementById('br-sheet').classList.remove('hidden');
+    document.getElementById('br-sheet').classList.remove('hidden'); mxScrollLock(true);
 };
-window.closeBrowseFilters = () => document.getElementById('br-sheet').classList.add('hidden');
+window.closeBrowseFilters = () => { document.getElementById('br-sheet').classList.add('hidden'); mxScrollLock(false); };
 window.applyBrowseFilters = () => { ['type', 'industry', 'genre', 'language', 'year'].forEach(k => { browse[k] = document.getElementById('bf-' + k).value; }); closeBrowseFilters(); renderBrowse(); };
 window.resetBrowseFilters = () => { browse = { ...BR_DEF, sort: browse.sort, tab: browse.tab }; closeBrowseFilters(); renderBrowse(); };

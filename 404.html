@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>MoveX</title>
+  <!--
+    GitHub Pages has no server rewrites, so any deep link (/WatchAnime/movie/abc, /WatchAnime/genre/action ...)
+    lands here first. This page sends the visitor back to the app root with the original path in the query
+    string, and index.html puts the real URL back before the app starts. Keep this file next to index.html.
+  -->
+  <script>
+    (function (l) {
+      // The app root: "/" at a domain root, "/WatchAnime/" on a GitHub Pages project site.
+      var REPO = 'WatchAnime';                               // change this if the repository is renamed
+      var p = l.pathname, root = '/';
+      if (p === '/' + REPO || p.indexOf('/' + REPO + '/') === 0) root = '/' + REPO + '/';
+      var tail = p.indexOf(root) === 0 ? p.slice(root.length) : p.slice(1);
+      l.replace(
+        l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + root + '?/' + tail.replace(/&/g, '~and~') +
+        (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
+        l.hash
+      );
+    }(window.location));
+  </script>
+</head>
+<body></body>
+</html>

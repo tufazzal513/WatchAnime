@@ -1,18 +1,21 @@
 // --- MY LIST + CONTINUE WATCHING (stored in Firebase under the user's own account) ---
 window.myListIds = {};       // { movieId: addedAt }
 window.progressMap = {};     // { movieId: {ep, season, t, d, at} }
-let _listUid = null, _listRef = null, _progRef = null, _statsRef = null;
+window.historyMap = {};      // { movieId: {ep, season, t, d, at, done} }  (every title the user played, finished or not)
+let _listUid = null, _listRef = null, _progRef = null, _statsRef = null, _histRef = null;
 
 auth.onAuthStateChanged(user => {
     if (_listRef) _listRef.off(); if (_progRef) _progRef.off(); if (_statsRef) _statsRef.off();
-    myListIds = {}; progressMap = {}; _listUid = user ? user.uid : null;
+    historyMap = {}; myListIds = {}; progressMap = {}; _listUid = user ? user.uid : null;
     if (!user) return;
     _statsRef = db.ref('stats');
     _statsRef.on('value', st => { window.mxStats = st.val() || {}; if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage(); }, () => {});
     _listRef = db.ref('users/' + user.uid + '/myList');
     _progRef = db.ref('users/' + user.uid + '/progress');
+    _histRef = db.ref('users/' + user.uid + '/history');
+    _histRef.once('value', s => { historyMap = s.val() || {}; renderProfileStats(); if (typeof renderHistoryPage === 'function') renderHistoryPage(); }, () => {});   // read once; saveProgress keeps it up to date locally
     _listRef.on('value', s => { myListIds = s.val() || {}; refreshListUI(); });
-    _progRef.once('value', s => { progressMap = s.val() || {}; if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage(); });   // read once; saveProgress keeps progressMap up to date locally
+    _progRef.once('value', s => { progressMap = s.val() || {}; renderProfileStats(); if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage(); });   // read once; saveProgress keeps progressMap up to date locally
 });
 
 window.inMyList = (id) => !!myListIds[id];
@@ -32,7 +35,7 @@ window.refreshListUI = () => {
         const i = b.querySelector('i'); if (i) i.className = on ? 'fas fa-check' : 'fas fa-plus';
         const t = b.querySelector('.lbl'); if (t) t.textContent = on ? 'In My List' : 'Add to list';
     });
-    renderMyListPage();
+    renderMyListPage(); renderProfileStats();
     if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage();
 };
 window.renderMyListPage = () => {
@@ -73,7 +76,15 @@ window.saveProgress = (movieId, season, ep, t, d, force) => {
     _lastSave = now;
     const ref = db.ref('users/' + _listUid + '/progress/' + movieId);
     const refreshHome = () => { if (force && typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage(); };
-    if (t / d > 0.95) { delete progressMap[movieId]; ref.remove(); refreshHome(); return; }       // finished: drop it
+    const done = t / d > 0.95;
+    // watch history: one entry per title (latest episode / position), kept even when the title is finished
+    const h = { season: season || null, ep: ep == null ? null : ep, t: done ? Math.floor(d) : Math.floor(t), d: Math.floor(d), done };
+    historyMap[movieId] = Object.assign({}, h, { at: Date.now() });
+    db.ref('users/' + _listUid + '/history/' + movieId).set(Object.assign({}, h, { at: firebase.database.ServerValue.TIMESTAMP })).catch(() => {});
+    const old = Object.entries(historyMap).sort((a, b) => (b[1].at || 0) - (a[1].at || 0)).slice(100);   // keep the latest 100
+    old.forEach(([id]) => { delete historyMap[id]; db.ref('users/' + _listUid + '/history/' + id).remove().catch(() => {}); });
+    if (typeof renderHistoryPage === 'function') renderHistoryPage();
+    if (done) { delete progressMap[movieId]; ref.remove(); refreshHome(); return; }       // finished: drop it from Continue Watching
     progressMap[movieId] = { season: season || null, ep: ep == null ? null : ep, t: Math.floor(t), d: Math.floor(d), at: Date.now() };
     ref.set({ season: season || null, ep: ep == null ? null : ep, t: Math.floor(t), d: Math.floor(d), at: firebase.database.ServerValue.TIMESTAMP });
     refreshHome();
@@ -86,4 +97,80 @@ window.mxCountPlay = (id) => {
     if (Date.now() - last < 6 * 3600e3) return;
     localStorage.setItem(k, String(Date.now()));
     db.ref('stats/' + id + '/plays').transaction(n => (n || 0) + 1).catch(() => {});
+};
+
+// --- profile page: numbers + small actions ---
+window.renderProfileStats = () => {
+    const a = document.getElementById('pf-count-list'), b = document.getElementById('pf-count-prog');
+    if (!a || !b) return;
+    const known = Object.keys(allMovies || {}).length > 0;
+    const count = (m) => Object.keys(m || {}).filter(id => !known || allMovies[id]).length;   // titles that are private / removed are not counted
+    a.textContent = count(myListIds); b.textContent = count(progressMap);
+};
+window.pfClearSearch = () => {
+    if (typeof clearSearchHistory === 'function') clearSearchHistory();
+    const t = document.getElementById('pf-clear-sub'); if (t) { t.textContent = 'Search history cleared'; setTimeout(() => { t.textContent = 'Remove your recent searches from this device'; }, 2500); }
+};
+
+// --- WATCH HISTORY page (grouped by day, delete one, clear all) ---
+const hsAgo = (at) => {
+    const m = Math.floor((Date.now() - at) / 60000);
+    if (m < 1) return 'Just now';
+    if (m < 60) return m + ' min ago';
+    const h = Math.floor(m / 60);
+    return h < 24 ? h + (h === 1 ? ' hour ago' : ' hours ago') : '';
+};
+const hsDay = (at) => {
+    const d = new Date(at), t = new Date(), y = new Date(Date.now() - 864e5);
+    const same = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    return same(d, t) ? 'Today' : same(d, y) ? 'Yesterday' : d.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+};
+window.renderHistoryPage = () => {
+    const box = document.getElementById('hs-list'), empty = document.getElementById('hs-empty');
+    if (!box) return;
+    const known = Object.keys(allMovies || {}).length > 0;
+    const items = Object.entries(historyMap || {}).filter(([id, e]) => e && (!known || allMovies[id])).sort((a, b) => (b[1].at || 0) - (a[1].at || 0));
+    empty.classList.toggle('hidden', items.length > 0 || !known);   // not "empty" while the movie list is still loading
+    document.getElementById('hs-clear').style.display = items.length ? '' : 'none';
+    let lastDay = '';
+    box.innerHTML = items.map(([id, e]) => {
+        const m = allMovies[id]; if (!m) return '';
+        const day = hsDay(e.at || Date.now()), head = day !== lastDay ? `<h3 class="hs-day">${esc(day)}</h3>` : ''; lastDay = day;
+        const pct = e.done ? 100 : (e.d ? Math.min(100, Math.round(e.t / e.d * 100)) : 0);
+        const ep = m.contentType === 'series' && e.ep != null ? `${esc(e.season || 'Season 1')} · Episode ${(+e.ep || 0) + 1}` : '';
+        const state = e.done ? 'Finished' : 'Watched ' + pct + '%';
+        return head + `
+        <div class="ml-row hs-row" onclick="showMovieDetails('${id}')">
+            <div class="ml-poster" ${mxT(m)}>${mxImg(m)}${mxBadges(m)}<div class="nf-prog"><i style="width:${pct}%"></i></div></div>
+            <div class="ml-info">
+                <p class="ml-title">${esc(m.title)}</p>
+                ${ep ? `<p class="hs-ep">${ep}</p>` : ''}
+                <p class="hs-sub">${state}${hsAgo(e.at || 0) ? ' · ' + hsAgo(e.at || 0) : ''}</p>
+            </div>
+            <div class="ml-act">
+                <span class="ml-play"><i class="fas fa-play"></i></span>
+                <button class="hs-rm" onclick="removeFromHistory('${id}', event)" aria-label="Remove from history"><i class="fas fa-times"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+    const sub = document.getElementById('pf-hist-sub'); if (sub) sub.textContent = items.length ? items.length + (items.length === 1 ? ' title' : ' titles') + ' watched' : 'Titles you watched recently';
+};
+window.removeFromHistory = (id, ev) => {
+    if (ev) ev.stopPropagation();
+    if (!_listUid) return;
+    delete historyMap[id]; delete progressMap[id];
+    db.ref('users/' + _listUid + '/history/' + id).remove().catch(() => {});
+    db.ref('users/' + _listUid + '/progress/' + id).remove().catch(() => {});
+    renderHistoryPage(); renderProfileStats();
+    if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage();
+};
+window.clearWatchHistory = () => {
+    if (!_listUid) return;
+    showCustomModal('confirm', 'Clear your whole watch history? Continue Watching will be cleared too.', () => {
+        historyMap = {}; progressMap = {};
+        db.ref('users/' + _listUid + '/history').remove().catch(() => {});
+        db.ref('users/' + _listUid + '/progress').remove().catch(() => {});
+        renderHistoryPage(); renderProfileStats();
+        if (typeof renderHomePage === 'function' && Object.keys(allMovies).length) renderHomePage();
+    });
 };
