@@ -57,7 +57,7 @@ auth.onAuthStateChanged(async (user) => {
         // The address bar decides where to start. Titles/filters/search need the movie data, so those wait for it.
         let route = MXR.parse(location.pathname, location.search);
         if (route && route.auth) {              // just logged in from /login?next=... -> go to "next" (or home)
-            try { history.replaceState({ page: 'home-page', d: 0 }, '', MXR.toUrl(route.next || '/')); } catch (e) {}
+            try { history.replaceState({ page: 'home-page', d: 0 }, '', route.next || '/'); } catch (e) {}
             route = MXR.parse(location.pathname, location.search);
         }
         window.__mxPendingRoute = null;

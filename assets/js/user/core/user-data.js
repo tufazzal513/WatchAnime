@@ -34,7 +34,7 @@ const loadInitialData = () => {
 window.mxApplyRoute = (r, push) => {
     if (!auth.currentUser) return;
     if (r && r.auth) {                           // already logged in: /login, /signup ... lead to "next" or home
-        try { history.replaceState({ page: 'home-page', d: (history.state && history.state.d) || 0 }, '', MXR.toUrl(r.next || '/')); } catch (e) {}
+        try { history.replaceState({ page: 'home-page', d: (history.state && history.state.d) || 0 }, '', r.next || '/'); } catch (e) {}
         r = MXR.parse(location.pathname, location.search);
     }
     if (!window.__startupRouteDone) { window.__mxPendingRoute = r; return; }

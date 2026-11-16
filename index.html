@@ -3,25 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- The app root, decided before any asset or link is resolved, so the same files work both at a domain
-         root ("/") and under a GitHub Pages project path ("/WatchAnime/"). The <base> href is absolute, so the
-         URL repair below (which runs right after) cannot shift it. -->
+    <!-- Real URLs (/movie/<id>/<name>, /genre/action ...): every asset path is relative to the site root -->
+    <base href="/">
     <script>
+      // GitHub Pages: 404.html sends /movie/abc?s=1 here as /?/movie/abc&s=1. Put the real URL back before the app starts.
       (function (l) {
-        var REPO = 'WatchAnime';                 // GitHub Pages project site = /<repo>/ (change this on rename)
-        var p = l.pathname;
-        var atRoot = p.charAt(p.length - 1) === '/';            // 404.html sends deep links to <root>/?/...
-        var root = (atRoot || p.split('/')[1] === REPO) && p.split('/')[1] === REPO ? '/' + REPO + '/' : '/';
-        if (atRoot && p !== '/') root = p;                       // served from the folder itself
-        var b = document.createElement('base');
-        b.setAttribute('href', root);
-        (document.head || document.getElementsByTagName('head')[0]).appendChild(b);
-        window.MX_ROOT = root;
-
-        // GitHub Pages: 404.html sends /movie/abc?s=1 here as /?/movie/abc&s=1. Put the real URL back before the app starts.
-        if (l.search.charAt(1) === '/') {
-          var d = l.search.slice(2).split('&').map(function (s) { return s.replace(/~and~/g, '&'); }).join('?');
-          window.history.replaceState(null, null, p.slice(0, -1) + d + l.hash);
+        if (l.search[1] === '/') {
+          var d = l.search.slice(1).split('&').map(function (s) { return s.replace(/~and~/g, '&'); }).join('?');
+          window.history.replaceState(null, null, l.pathname.slice(0, -1) + d + l.hash);
         }
       }(window.location));
     </script>
