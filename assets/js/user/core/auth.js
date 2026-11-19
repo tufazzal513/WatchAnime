@@ -154,13 +154,14 @@ const showPage = (pageId, pushToHistory = true, urlOverride) => {
     });
 
     // Handle Global App Bar visibility based on active page
-    const hideHeaderPages = ['movie-details-page', 'category-movies-page', 'search-page', 'history-page', 'notifications-page'];
+    const hideHeaderPages = ['movie-details-page', 'category-movies-page', 'search-page', 'history-page', 'notifications-page', 'settings-page'];
     toggleGlobalHeader(!hideHeaderPages.includes(pageId));
 
     MXR.nav(urlOverride || window.mxPageUrl(pageId), { page: pageId }, !pushToHistory);
     MXR.setTitle(pageId === 'category-movies-page' && window.mxBrowseTitle ? window.mxBrowseTitle() : MXR.pageTitle(pageId));
 
     if (pageId === 'search-page' && typeof resetSearchPage === 'function') resetSearchPage();
+    if (pageId === 'settings-page' && typeof renderSettingsPage === 'function') { renderSettingsPage(); window.scrollTo(0, 0); }
     if (pageId === 'history-page' && typeof renderHistoryPage === 'function') { renderHistoryPage(); window.scrollTo(0, 0); }
 };
 
