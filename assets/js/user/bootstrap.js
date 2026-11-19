@@ -35,6 +35,7 @@
       "pages/search.js",
       "pages/categories.js",
       "pages/category-movies.js",
+      "pages/settings.js",
       "core/modal.js",
       "pages/watch-player.js",
       "core/theme-engine.js",

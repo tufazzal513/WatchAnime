@@ -66,3 +66,13 @@ button.pf-stat:active{background:#222}
 .nt-item.unread .nt-time{margin-right:16px}
 .nt-bell{position:relative}
 .nt-dot{position:absolute;top:3px;right:3px;width:9px;height:9px;border-radius:50%;background:var(--nf);border:2px solid #141414;box-sizing:content-box}
+
+/* Settings page */
+#settings-page{padding-top:0!important}
+.st-wrap{max-width:560px;margin:0 auto;padding:8px 16px 110px}
+.st-block{padding:14px}
+.st-head{display:flex;align-items:center;gap:14px}
+.st-opts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.st-opt{padding:11px 4px;border-radius:10px;background:#262626;border:1px solid #333;color:#ddd;font-size:14px;font-weight:700;cursor:pointer}
+.st-opt.on{background:var(--nf);border-color:var(--nf);color:#fff}
+.st-note{margin-top:12px;font-size:12px;line-height:1.5;color:#8c8c8c}

@@ -1,10 +1,48 @@
 // ===== MovieBox-style details page with the video playing inline at the top =====
 let currentSeasonKey = null;   // read by broken-link-reporter.js
 let currentEpIndex = -1;
-const PL = { mode: null, hls: null, yt: null, vimeo: null, ytTimer: null, wake: null, fake: false, url: '', playing: false, uiTimer: null, nextTimer: null, resumeAt: 0, upgraded: false, started: false, bright: 1 };
+const PL = { mode: null, hls: null, yt: null, vimeo: null, ytTimer: null, wake: null, fake: false, url: '', playing: false, uiTimer: null, nextTimer: null, resumeAt: 0, upgraded: false, started: false, bright: 1, qs: null, level: null, sel: 'auto', auto: false, srcObj: null, epName: null, switching: false, sessSel: null, autoTimer: 0, stallT: 0, stallAt: 0, stalls: [], noUp: {}, failed: {}, lastSwitch: 0, graceUntil: 0, autoH: 0, autoHMovie: null };
 const $id = (i) => document.getElementById(i);
 const fmtT = (s) => { s = Math.max(0, s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
 const getLink = (o) => (o && (o.server1 || o.server2 || o.link)) || '';
+
+// ---------- multi-quality (480p / 720p / 1080p + Auto) ----------
+// A title/episode may carry q480, q720, q1080 (direct links). A box left empty by the admin simply does not exist for the player.
+// The old single link (server1) stays: alone when no quality is filled, otherwise it is listed as "Default" in the menu.
+const QKEYS = ['480', '720', '1080'];
+const qNums = (o) => o ? QKEYS.filter(k => typeof o['q' + k] === 'string' && o['q' + k].trim()).map(k => ({ key: k, h: +k, url: o['q' + k].trim() })) : [];
+const qSources = (o) => { const L = qNums(o); if (!L.length) return []; const d = (getLink(o) || '').trim(); if (d) L.push({ key: 'default', h: 0, url: d }); return L; };
+// closest available height: the same one, else the closest LOWER one (saves data), else the closest higher one
+const nearestQ = (hs, want) => {
+    if (hs.includes(want)) return want;
+    const lo = hs.filter(h => h < want).sort((a, b) => b - a); if (lo.length) return lo[0];
+    return hs.filter(h => h > want).sort((a, b) => a - b)[0];
+};
+const netConn = () => navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+const netStartQ = () => {
+    const c = netConn(); if (!c) return 720; if (c.saveData) return 480;
+    if (typeof c.downlink === 'number' && c.downlink > 0) return c.downlink >= 6 ? 1080 : c.downlink >= 2.5 ? 720 : 480;
+    return c.effectiveType === '4g' ? 720 : 480;
+};
+const bufAhead = (v) => { try { for (let i = 0; i < v.buffered.length; i++) if (v.currentTime >= v.buffered.start(i) - 0.2 && v.currentTime <= v.buffered.end(i)) return v.buffered.end(i) - v.currentTime; } catch (e) {} return 0; };
+// which link to start with: this title's manual pick (session only) > the user's saved default (Settings) > auto
+const plChoose = (o) => {
+    const L = qSources(o), nums = L.filter(x => x.h);
+    if (!nums.length) { PL.qs = null; PL.level = null; PL.auto = false; return { url: getLink(o), key: null }; }
+    PL.qs = L;
+    const hs = nums.map(x => x.h);
+    let sel = (PL.sessSel && PL.sessSel.movie === currentMovieId) ? PL.sessSel.key : (typeof mxDefQ === 'function' ? mxDefQ() : 'auto');
+    if (sel === 'default' && !L.some(x => x.key === 'default')) sel = 'auto';
+    PL.sel = sel; PL.auto = sel === 'auto';
+    let key;
+    if (sel === 'default') key = 'default';
+    else {
+        const want = sel === 'auto' ? ((PL.autoHMovie === currentMovieId && PL.autoH) ? PL.autoH : netStartQ()) : +sel;
+        key = String(nearestQ(hs, want));
+    }
+    const it = L.find(x => x.key === key) || nums[0];
+    return { url: it.url, key: it.key };
+};
 function getYouTubeID(url) { const m = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/); return (m && m[2].length == 11) ? m[2] : url; }
 function linkType(u) {
     const l = u.toLowerCase();
@@ -175,7 +213,7 @@ window.playEpisode = (i) => {
     const pr = progressMap[currentMovieId]; if (pr && pr.season === currentSeasonKey && pr.ep === i && pr.t > 5) PL.resumeAt = pr.t;
     const sel = $id('mv-season'); if (sel) sel.value = currentSeasonKey;
     renderEpRow(); window.scrollTo({ top: 0, behavior: 'smooth' });
-    plLoad(getLink(eps[i]), eps[i].name);
+    plLoad(eps[i], eps[i].name);
 };
 const epList = () => { const m = allMovies[currentMovieId]; return (m && m.seasons && m.seasons[currentSeasonKey]) || []; };
 window.plNextEp = () => { if (currentEpIndex + 1 < epList().length) playEpisode(currentEpIndex + 1); };
@@ -205,7 +243,7 @@ const fallbackCopy = (u, done) => { const t = document.createElement('textarea')
 window.nativeShare = () => { const m = allMovies[currentMovieId]; navigator.share({ title: m.title, text: m.title + ' - watch now', url: shareUrl() }).catch(() => {}); closeSheet(); };
 window.reportTitle = () => {
     const m = allMovies[currentMovieId]; const eps = epList();
-    const link = m.contentType === 'series' ? getLink(eps[currentEpIndex]) : getLink(m);
+    const link = PL.started && PL.url ? PL.url : (m.contentType === 'series' ? getLink(eps[currentEpIndex]) : getLink(m));
     reportBrokenLink('user-report', link || ''); closeSheet(); plToast('Thanks, reported');
 };
 // ---------- player engine ----------
@@ -219,13 +257,21 @@ const wakeOff = () => { try { if (PL.wake) PL.wake.release(); } catch (e) {} PL.
 
 window.startPlayback = () => {
     const m = allMovies[currentMovieId]; if (!m) return; if (isLocked(m)) return plToast('Coming soon');
-    if (m.contentType === 'series' && m.seasons) { const e = epList()[currentEpIndex]; if (!e) return plToast('No episodes yet'); plLoad(getLink(e), e.name); renderEpRow(); }
-    else plLoad(getLink(m), null);
+    if (m.contentType === 'series' && m.seasons) { const e = epList()[currentEpIndex]; if (!e) return plToast('No episodes yet'); plLoad(e, e.name); renderEpRow(); }
+    else plLoad(m, null);
 };
-const plLoad = (url, epName) => {
+const plLoad = (arg, epName, opts) => {
+    opts = opts || {};
     if (isLocked(allMovies[currentMovieId])) { plToast('Coming soon'); return; }
+    const srcObj = (arg && typeof arg === 'object') ? arg : { server1: arg || '' };
+    let url;
+    if (opts.url) url = opts.url;   // quality switch: the link is already chosen
+    else { const pk = plChoose(srcObj); url = pk.url; PL.level = pk.key; PL.failed = {}; PL.noUp = {}; PL.stalls = []; }
     if (!url) { plShowErr('Video link is not available right now.'); return; }
+    PL.srcObj = srcObj; PL.epName = epName;
     plTeardown(); $id('pl-err').classList.remove('on'); plCancelNext();
+    PL.switching = !!opts.switching; PL.lastSwitch = Date.now(); PL.graceUntil = Date.now() + 8000; PL.stallAt = 0;
+    const qb = $id('pl-q-b'); if (qb) qb.classList.toggle('hidden', !(PL.qs && PL.qs.length > 1));
     const pl = $id('pl'); pl.classList.add('started'); PL.started = true; PL.upgraded = false;
     $id('pl-title').textContent = epName ? allMovies[currentMovieId].title + ' · ' + epName : allMovies[currentMovieId].title;
     const mode = linkType(url); PL.url = url;
@@ -258,28 +304,36 @@ const plLoad = (url, epName) => {
     bindVideo(v);
     if (mode === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
         if (window.Hls && Hls.isSupported()) {
-            PL.hls = new Hls({ maxBufferLength: 40 }); PL.hls.loadSource(url); PL.hls.attachMedia(v);
-            PL.hls.on(Hls.Events.MANIFEST_PARSED, () => { if (PL.hls.levels.length > 1) $id('pl-q-b').classList.remove('hidden'); v.play().catch(() => setPlaying(false)); });
+            PL.hls = new Hls({ maxBufferLength: 40, startPosition: PL.resumeAt > 0 ? PL.resumeAt : -1 }); PL.hls.loadSource(url); PL.hls.attachMedia(v);
+            PL.hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!PL.qs && PL.hls.levels.length > 1) $id('pl-q-b').classList.remove('hidden'); if (!opts.keepPaused) v.play().catch(() => setPlaying(false)); });
             PL.hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) plFail('hls', url); });
         } else return plFail('hls', url);
-    } else { v.src = url; v.load(); v.play().catch(() => setPlaying(false)); }
+    } else { v.src = url; v.load(); if (!opts.keepPaused) v.play().catch(() => setPlaying(false)); }
     if ('pictureInPictureEnabled' in document || v.webkitSetPresentationMode) $id('pl-pip-b').classList.remove('hidden');
     v.playbackRate = plSpeed(); v.volume = parseFloat(localStorage.getItem('pl_vol') || '1'); $id('pl-vol').value = v.volume;
+    plAutoStart();
 };
 const bindVideo = (v) => {
-    v.onloadedmetadata = () => { if (PL.resumeAt && PL.resumeAt < v.duration - 5) v.currentTime = PL.resumeAt; PL.resumeAt = 0; };
-    v.onwaiting = () => spin(true); v.oncanplay = () => spin(false); v.onplaying = () => { spin(false); setPlaying(true); };
+    v.onloadedmetadata = () => { if (PL.resumeAt && PL.resumeAt < v.duration - (PL.switching ? 1 : 5)) v.currentTime = PL.resumeAt; PL.resumeAt = 0; PL.switching = false; };
+    v.onwaiting = () => { spin(true); plStallStart(v); }; v.oncanplay = () => spin(false); v.onplaying = () => { spin(false); setPlaying(true); plStallEnd(); }; v.onseeking = () => { PL.graceUntil = Date.now() + 4000; };
     v.onpause = () => { setPlaying(false); plSave(true); }; v.onended = plEnded;
     v.ontimeupdate = plTick; v.onprogress = plBuf;
     v.onerror = () => { if (!v.getAttribute('src') || (v.error && v.error.code === 1)) return; plFail(PL.mode, PL.url); };
 };
 const plFail = (type, url) => {
     spin(false); setPlaying(false);
+    if (PL.qs && PL.level) {   // this quality's link is broken: report it, then try the closest working one
+        PL.failed[PL.level] = 1;
+        try { reportBrokenLink(type, url); } catch (e) {}
+        const cur = +PL.level || 0;
+        const cand = PL.qs.filter(x => !PL.failed[x.key]).sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1) || Math.abs(a.h - cur) - Math.abs(b.h - cur) || a.h - b.h)[0];
+        if (cand) { plToast('Could not play this quality, trying ' + (cand.h ? cand.h + 'p' : 'Default')); plSwitch(cand.key, { force: true }); return; }
+    }
     plShowErr(PL.upgraded ? 'This link is not secure (http) and could not be opened. Please tell the admin to use https.' : 'This video could not be loaded.');
     try { reportBrokenLink(type, url); } catch (e) {}
 };
 const plShowErr = (t) => { const e = $id('pl-err'); if (!e) return; $id('pl-err-t').textContent = t; e.classList.add('on'); };
-window.plRetry = () => { $id('pl-err').classList.remove('on'); const m = allMovies[currentMovieId]; if (m.contentType === 'series') { const e = epList()[currentEpIndex]; plLoad(getLink(e), e.name); } else plLoad(getLink(m), null); };
+window.plRetry = () => { $id('pl-err').classList.remove('on'); const m = allMovies[currentMovieId]; if (m.contentType === 'series') { const e = epList()[currentEpIndex]; plLoad(e, e.name); } else plLoad(m, null); };
 const plTick = () => {
     const c = plCur(), d = plDurV(); if (!(d > 0)) return; PL.dur = d;
     if (!$id('pl-seek').dataset.drag) { $id('pl-seek').max = d; $id('pl-seek').value = c; $id('pl-fill').style.width = (c / d * 100) + '%'; $id('pl-cur').textContent = fmtT(c); }
@@ -287,7 +341,7 @@ const plTick = () => {
     plSave(false);
 };
 const plBuf = () => { const v = vid(); if (v && v.buffered.length && v.duration) $id('pl-buf').style.width = (v.buffered.end(v.buffered.length - 1) / v.duration * 100) + '%'; };
-const plSave = (force) => { const m = allMovies[currentMovieId]; if (!m || !PL.started) return; if (plCur() >= 30 && typeof mxCountPlay === 'function') mxCountPlay(currentMovieId); saveProgress(currentMovieId, currentSeasonKey, currentEpIndex < 0 ? null : currentEpIndex, plCur(), plDurV(), force); };
+const plSave = (force) => { const m = allMovies[currentMovieId]; if (!m || !PL.started || PL.switching) return; if (plCur() >= 30 && typeof mxCountPlay === 'function') mxCountPlay(currentMovieId); saveProgress(currentMovieId, currentSeasonKey, currentEpIndex < 0 ? null : currentEpIndex, plCur(), plDurV(), force); };
 const plEnded = () => {
     setPlaying(false); saveProgress(currentMovieId, currentSeasonKey, currentEpIndex, 1, 1, true);
     if (currentEpIndex > -1 && currentEpIndex + 1 < epList().length) {
@@ -297,6 +351,7 @@ const plEnded = () => {
 };
 window.plCancelNext = () => { clearInterval(PL.nextTimer); const c = $id('pl-nextcard'); if (c) c.classList.remove('on'); };
 const plTeardown = () => {
+    clearInterval(PL.autoTimer); clearTimeout(PL.stallT); PL.autoTimer = 0; PL.stallT = 0;
     clearInterval(PL.ytTimer); try { if (PL.yt && PL.yt.destroy) PL.yt.destroy(); } catch (e) {} PL.yt = null;
     try { if (PL.vimeo && PL.vimeo.destroy) PL.vimeo.destroy(); } catch (e) {} PL.vimeo = null;
     if (PL.hls) { PL.hls.destroy(); PL.hls = null; }
@@ -331,11 +386,67 @@ window.plMenu = (kind) => {
     const pop = $id('pl-pop'); if (pop.dataset.k === kind && pop.classList.contains('on')) { pop.classList.remove('on'); return; }
     let items = [];
     if (kind === 'speed') items = [0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `<button class="${s === plSpeed() ? 'on' : ''}" onclick="plSetSpeed(${s})">${s === 1 ? 'Normal' : s + 'x'}</button>`);
+    else if (PL.qs) {
+        const nums = PL.qs.filter(x => x.h).sort((a, b) => b.h - a.h), def = PL.qs.find(x => !x.h);
+        items = [`<button class="${PL.auto ? 'on' : ''}" onclick="plPickQ('auto')">Auto${PL.auto && PL.level && PL.level !== 'default' ? ' <small>(' + PL.level + 'p)</small>' : ''}</button>`]
+            .concat(nums.map(x => `<button class="${!PL.auto && PL.level === x.key ? 'on' : ''}" onclick="plPickQ('${x.key}')">${x.h}p</button>`));
+        if (def) items.push(`<button class="${!PL.auto && PL.level === 'default' ? 'on' : ''}" onclick="plPickQ('default')">Default</button>`);
+    }
     else if (PL.hls) items = [`<button class="${PL.hls.currentLevel === -1 ? 'on' : ''}" onclick="plSetQ(-1)">Auto</button>`].concat(PL.hls.levels.map((l, i) => ({ h: l.height, i })).sort((a, b) => b.h - a.h).map(o => `<button class="${PL.hls.currentLevel === o.i ? 'on' : ''}" onclick="plSetQ(${o.i})">${o.h}p</button>`));
     pop.dataset.k = kind; pop.innerHTML = items.join(''); pop.classList.add('on'); plShowUI();
 };
 window.plSetSpeed = (s) => { localStorage.setItem('pl_speed', s); if (PL.mode === 'yt' && PL.yt) PL.yt.setPlaybackRate(s); else if (PL.mode === 'vimeo' && PL.vimeo) PL.vimeo.setPlaybackRate(s); else if (vid()) vid().playbackRate = s; $id('pl-pop').classList.remove('on'); };
 window.plSetQ = (i) => { if (PL.hls) PL.hls.currentLevel = i; $id('pl-pop').classList.remove('on'); };
+// Switch to another quality link and carry on from the exact second the viewer reached (play/pause state is kept too).
+const plSwitch = (key, o) => {
+    o = o || {};
+    if (!PL.qs || !PL.srcObj) return;
+    const it = PL.qs.find(x => x.key === key); if (!it || (key === PL.level && !o.force)) return;
+    const t = PL.mode === 'iframe' ? 0 : plCur(), wasPlaying = PL.playing;
+    if (!o.force) plSave(true);                       // remember the position first
+    PL.resumeAt = t > 1 ? t : 0; PL.level = key;
+    plLoad(PL.srcObj, PL.epName, { switching: true, url: it.url, keepPaused: !wasPlaying && !o.force });
+};
+// the viewer picked a quality in the player: valid for this title until they leave it; the saved default is never changed here
+window.plPickQ = (key) => {
+    $id('pl-pop').classList.remove('on');
+    if (!PL.qs) return;
+    PL.sessSel = { movie: currentMovieId, key }; PL.sel = key; PL.auto = key === 'auto';
+    if (key === 'auto') {
+        PL.noUp = {};
+        const hs = PL.qs.filter(x => x.h).map(x => x.h);
+        if (!PL.level || PL.level === 'default') plSwitch(String(nearestQ(hs, netStartQ())));
+        else plAutoStart();
+        plToast('Auto quality');
+    } else { plSwitch(key); plAutoStart(); }
+};
+// ----- Auto: start from the network speed, step down when it keeps buffering, step up slowly when it is smooth -----
+const plAutoLevels = () => (PL.qs || []).filter(x => x.h).map(x => x.h).sort((a, b) => a - b);
+const plStallStart = (v) => {
+    if (!PL.auto || !PL.qs || PL.switching || v.seeking || Date.now() < PL.graceUntil) return;
+    if (!PL.stallAt) PL.stallAt = Date.now();
+    clearTimeout(PL.stallT); PL.stallT = setTimeout(() => plAutoDown(), 3500);   // one long stall
+};
+const plStallEnd = () => {
+    clearTimeout(PL.stallT); PL.stallT = 0;
+    if (!PL.stallAt) return; PL.stallAt = 0;
+    const now = Date.now(); PL.stalls = PL.stalls.filter(t => now - t < 60000); PL.stalls.push(now);
+    if (PL.stalls.length >= 2) { PL.stalls = []; plAutoDown(); }                   // repeated short stalls
+};
+const plAutoDown = () => {
+    if (!PL.auto || !PL.qs || PL.switching || Date.now() < PL.graceUntil) return;
+    const cur = +PL.level, lower = plAutoLevels().filter(h => h < cur); if (!lower.length) return;
+    const nh = lower[lower.length - 1]; PL.noUp[cur] = Date.now() + 180000; PL.autoH = nh; PL.autoHMovie = currentMovieId;
+    plToast('Slow connection: switching to ' + nh + 'p'); plSwitch(String(nh));
+};
+const plAutoTick = () => {
+    const v = vid(); if (!PL.auto || !PL.qs || !v || PL.switching || !PL.playing || v.seeking || v.paused) return;
+    const now = Date.now(); if (now < PL.graceUntil || now - PL.lastSwitch < 60000 || bufAhead(v) < 20) return;
+    const cur = +PL.level, up = plAutoLevels().filter(h => h > cur)[0]; if (!up || (PL.noUp[up] || 0) > now) return;
+    const c = netConn(); if (c && typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < (up >= 1080 ? 5 : 2.5)) return;
+    PL.autoH = up; PL.autoHMovie = currentMovieId; plToast('Switching to ' + up + 'p'); plSwitch(String(up));
+};
+const plAutoStart = () => { clearInterval(PL.autoTimer); PL.autoTimer = 0; if (PL.auto && PL.qs && (PL.mode === 'direct' || PL.mode === 'hls')) PL.autoTimer = setInterval(plAutoTick, 5000); };
 window.plPip = async () => { const v = vid(); try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else if (v.requestPictureInPicture) await v.requestPictureInPicture(); else if (v.webkitSetPresentationMode) v.webkitSetPresentationMode(v.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture'); } catch (e) { plToast('Picture-in-picture is not available'); } };
 // fullscreen (real fullscreen when possible, CSS fullscreen on iPhone so the controls stay visible)
 const plIsFs = () => !!(document.fullscreenElement || document.webkitFullscreenElement || PL.fake);

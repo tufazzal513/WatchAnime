@@ -1,5 +1,6 @@
 // --- USER SPECIFIC DATA (Runs only after successful login) ---
 const loadInitialData = () => {
+    if (typeof mxLoadDefQ === 'function') mxLoadDefQ();   // the user's saved default video quality
     db.ref('movies').on('value', s => { 
         const rawMovies = s.val() || {};
         // শুধুমাত্র সেগুলোই ফিল্টার করছি যা প্রাইভেট নয়

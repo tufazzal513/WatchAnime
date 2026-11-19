@@ -3,11 +3,11 @@
     const FILTERS = ['genre', 'industry', 'language', 'type', 'year'];
     const PAGES = {
         'home-page': '/', 'search-page': '/search', 'categories-page': '/categories', 'category-movies-page': '/browse',
-        'notifications-page': '/notifications', 'profile-page': '/profile', 'mylist-page': '/my-list', 'history-page': '/history'
+        'notifications-page': '/notifications', 'profile-page': '/profile', 'mylist-page': '/my-list', 'history-page': '/history', 'settings-page': '/settings'
     };
     const TITLES = {
         'search-page': 'Search', 'categories-page': 'Categories', 'category-movies-page': 'Browse',
-        'notifications-page': 'Notifications', 'profile-page': 'Profile', 'mylist-page': 'My List', 'history-page': 'Watch History'
+        'notifications-page': 'Notifications', 'profile-page': 'Profile', 'mylist-page': 'My List', 'history-page': 'Watch History', 'settings-page': 'Settings'
     };
     const TABS = ['all', 'movies', 'series', 'anime'], SORTS = ['suggested', 'new', 'top', 'az'];
     const ID_RE = /^[A-Za-z0-9_\-]+$/;
