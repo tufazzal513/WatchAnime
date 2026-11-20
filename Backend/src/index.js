@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { createApp } from './app.js';
 import { createTelegram } from './telegram.js';
 import { restoreIfEmpty } from './restore.js';
+import { stripLegacyLinks } from './visibility.js';
 
 try { if (fs.existsSync('.env')) process.loadEnvFile('.env'); } catch { /* env vars can also come from the hosting panel */ }
 
@@ -35,6 +36,24 @@ if (role === 'main') {
 }
 
 const app = createApp(cfg);
+// One-time cleanup (MAIN only): the old default video link fields (server1 / server2 / link) are removed from every stored title and episode.
+// Workers receive the cleaned data through the normal sync.
+if (role === 'main') {
+  try {
+    if (app.store.getMeta('legacy_links_removed') !== '1') {
+      const all = app.store.readRaw(['movies']) || {};
+      let n = 0;
+      app.store.transaction(() => {
+        for (const [id, m] of Object.entries(all)) {
+          const c = stripLegacyLinks(m);
+          if (JSON.stringify(c) !== JSON.stringify(m)) { app.store.writeAt(['movies', id], c); n++; }
+        }
+        app.store.setMeta('legacy_links_removed', '1');
+      });
+      console.log(`[start] old default video links removed from ${n} title(s)`);
+    }
+  } catch (e) { console.error('[start] legacy link cleanup failed:', e.message); }
+}
 const port = Number(env.PORT || 3000);
 app.server.listen(port, env.HOST || '0.0.0.0', () => {
   console.log(`MoveX ${role.toUpperCase()} server listening on :${port}  (db: ${cfg.dbPath})`);

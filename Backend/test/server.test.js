@@ -66,14 +66,14 @@ test('admin access is controlled only by ADMIN_UID, not legacy database adminUID
 test('Admin JSON import merges missing series episodes and never overwrites existing data', async () => {
   app.store.writeAt(['movies', 'seriesA'], {
     title: 'Original Series', contentType: 'series', year: '2020', posterUrl: 'old-poster',
-    seasons: { 'Season 1': [1, 2, 3, 4].map(n => ({ name: `Episode ${n}`, server1: `old-${n}` })) }
+    seasons: { 'Season 1': [1, 2, 3, 4].map(n => ({ name: `Episode ${n}`, q720: `old-${n}` })) }
   });
   app.store.writeAt(['movies', 'keepOnly'], { title: 'Keep Existing', contentType: 'movie' });
 
-  const incomingEpisodes = Array.from({ length: 10 }, (_, i) => ({ name: `Episode ${i + 1}`, server1: `incoming-${i + 1}` }));
+  const incomingEpisodes = Array.from({ length: 10 }, (_, i) => ({ name: `Episode ${i + 1}`, q720: `incoming-${i + 1}` }));
   const data = {
     movies: {
-      seriesA: { title: 'Changed Title', contentType: 'series', year: '2099', posterUrl: 'new-poster', seasons: { 'Season 1': incomingEpisodes, 'Season 2': [{ name: 'Episode 1', server1: 's2-e1' }] } },
+      seriesA: { title: 'Changed Title', contentType: 'series', year: '2099', posterUrl: 'new-poster', seasons: { 'Season 1': incomingEpisodes, 'Season 2': [{ name: 'Episode 1', q720: 's2-e1' }] } },
       newMovie: { title: 'New Movie', contentType: 'movie', year: '2026' },
       malformed: { posterUrl: 'missing-title' }
     },
@@ -97,9 +97,9 @@ test('Admin JSON import merges missing series episodes and never overwrites exis
   assert.equal(series.year, '2020');
   assert.equal(series.posterUrl, 'old-poster');
   assert.equal(series.seasons['Season 1'].length, 10);
-  assert.equal(series.seasons['Season 1'][0].server1, 'old-1');
-  assert.equal(series.seasons['Season 1'][3].server1, 'old-4');
-  assert.equal(series.seasons['Season 1'][4].server1, 'incoming-5');
+  assert.equal(series.seasons['Season 1'][0].q720, 'old-1');
+  assert.equal(series.seasons['Season 1'][3].q720, 'old-4');
+  assert.equal(series.seasons['Season 1'][4].q720, 'incoming-5');
   assert.equal(series.seasons['Season 2'].length, 1);
   assert.equal((await call('GET', 'movies/keepOnly/title', { token: U1 })).json, 'Keep Existing');
   assert.equal((await call('GET', 'movies/newMovie/title', { token: U1 })).json, 'New Movie');
@@ -122,7 +122,7 @@ test('settings are public, movies need login', async () => {
 });
 
 test('only admins write movies; arrays round-trip; push-style ids', async () => {
-  const movie = { title: 'A', seasons: { S1: [{ name: 'E1', server1: 'x' }, { name: 'E2', server1: 'y' }] }, isUpcoming: true, nothing: null };
+  const movie = { title: 'A', seasons: { S1: [{ name: 'E1', q720: 'x' }, { name: 'E2', q720: 'y' }] }, isUpcoming: true, nothing: null };
   assert.equal((await call('PUT', 'movies/-Oabc', { token: U1, body: movie })).status, 403);
   assert.equal((await call('PUT', 'movies/-Oabc', { token: ADMIN, body: movie })).status, 200);
   const got = (await call('GET', 'movies/-Oabc', { token: U1 })).json;
@@ -131,18 +131,18 @@ test('only admins write movies; arrays round-trip; push-style ids', async () => 
   assert.equal(got.seasons.S1[1].name, 'E2');
   assert.equal('nothing' in got, false);
   // this title is upcoming (no release time yet): normal users get the episode names but never the stream links
-  assert.equal('server1' in got.seasons.S1[0], false);
+  assert.equal('q720' in got.seasons.S1[0], false);
   const adminGot = (await call('GET', 'movies/-Oabc', { token: ADMIN })).json;
-  assert.equal(adminGot.seasons.S1[0].server1, 'x');
+  assert.equal(adminGot.seasons.S1[0].q720, 'x');
 });
 
 test('private titles are hidden from users; upcoming titles keep no stream links until release', async () => {
   const past = Date.now() - 60e3, future = Date.now() + 3600e3;
   const put = (id, body) => call('PUT', 'movies/' + id, { token: ADMIN, body });
-  await put('-Vpriv', { title: 'Secret', isPrivate: true, server1: 'https://secret/stream' });
-  await put('-Vsoon', { title: 'Soon', isUpcoming: true, releaseTs: future, server1: 'https://soon/stream', seasons: { S1: [{ name: 'E1', server1: 'https://soon/e1' }] } });
-  await put('-Vout', { title: 'Out', isUpcoming: true, releaseTs: past, server1: 'https://out/stream' });
-  await put('-Vpub', { title: 'Public', server1: 'https://pub/stream' });
+  await put('-Vpriv', { title: 'Secret', isPrivate: true, q720: 'https://secret/stream' });
+  await put('-Vsoon', { title: 'Soon', isUpcoming: true, releaseTs: future, q720: 'https://soon/stream', seasons: { S1: [{ name: 'E1', q720: 'https://soon/e1' }] } });
+  await put('-Vout', { title: 'Out', isUpcoming: true, releaseTs: past, q720: 'https://out/stream' });
+  await put('-Vpub', { title: 'Public', q720: 'https://pub/stream' });
   await call('PUT', 'banners/b1', { token: ADMIN, body: { movieId: '-Vpriv', imageUrl: 'x' } });
   await call('PUT', 'banners/b2', { token: ADMIN, body: { movieId: '-Vpub', imageUrl: 'y' } });
   await call('PUT', 'banners/b3', { token: ADMIN, body: { imageUrl: 'z' } });
@@ -151,19 +151,19 @@ test('private titles are hidden from users; upcoming titles keep no stream links
   assert.equal('-Vpriv' in list, false);
   assert.equal(list['-Vsoon'].title, 'Soon');
   assert.equal(JSON.stringify(list['-Vsoon']).includes('soon/'), false);
-  assert.equal(list['-Vout'].server1, 'https://out/stream');
-  assert.equal(list['-Vpub'].server1, 'https://pub/stream');
+  assert.equal(list['-Vout'].q720, 'https://out/stream');
+  assert.equal(list['-Vpub'].q720, 'https://pub/stream');
   assert.equal((await call('GET', 'movies/-Vpriv', { token: U1 })).json, null);
-  assert.equal((await call('GET', 'movies/-Vpriv/server1', { token: U1 })).json, null);
-  assert.equal((await call('GET', 'movies/-Vsoon/seasons/S1/0/server1', { token: U1 })).json, null);
+  assert.equal((await call('GET', 'movies/-Vpriv/q720', { token: U1 })).json, null);
+  assert.equal((await call('GET', 'movies/-Vsoon/seasons/S1/0/q720', { token: U1 })).json, null);
   assert.equal((await call('GET', 'movies/-Vsoon/seasons/S1/0/name', { token: U1 })).json, 'E1');
-  assert.equal((await call('GET', 'movies/-Vpub/server1', { token: U1 })).json, 'https://pub/stream');
+  assert.equal((await call('GET', 'movies/-Vpub/q720', { token: U1 })).json, 'https://pub/stream');
   const lite = (await call('GET', 'movies?lite=1', { token: U1 })).json;
   assert.equal('-Vpriv' in lite, false);
 
   const adminList = (await call('GET', 'movies', { token: ADMIN })).json;
-  assert.equal(adminList['-Vpriv'].server1, 'https://secret/stream');
-  assert.equal(adminList['-Vsoon'].server1, 'https://soon/stream');
+  assert.equal(adminList['-Vpriv'].q720, 'https://secret/stream');
+  assert.equal(adminList['-Vsoon'].q720, 'https://soon/stream');
 
   const banners = (await call('GET', 'banners', { token: U1 })).json;
   assert.deepEqual(Object.keys(banners).sort(), ['b2', 'b3']);
@@ -178,14 +178,26 @@ test('private titles are hidden from users; upcoming titles keep no stream links
   app.store.writeAt(['movies', '-Vsoon', 'releaseTs'], Date.now() + 300);
   await new Promise(r => setTimeout(r, 50));
   const mid = await call('GET', 'movies/-Vsoon', { token: U1 });
-  assert.equal(mid.json.seasons.S1[0].server1, undefined);
+  assert.equal(mid.json.seasons.S1[0].q720, undefined);
   await new Promise(r => setTimeout(r, 450));
   const after = await call('GET', 'movies', { token: U1, headers: { 'If-None-Match': before } });
   assert.equal(after.status, 200);
-  assert.equal(after.json['-Vsoon'].seasons.S1[0].server1, 'https://soon/e1');
+  assert.equal(after.json['-Vsoon'].seasons.S1[0].q720, 'https://soon/e1');
   await call('DELETE', 'movies/-Vpriv', { token: ADMIN }); await call('DELETE', 'movies/-Vsoon', { token: ADMIN });
   await call('DELETE', 'movies/-Vout', { token: ADMIN }); await call('DELETE', 'movies/-Vpub', { token: ADMIN });
   for (const b of ['b1', 'b2', 'b3']) await call('DELETE', 'banners/' + b, { token: ADMIN });
+});
+
+test('old default video links (server1/server2/link) are never sent to users; quality links are', async () => {
+  const put = (id, body) => call('PUT', 'movies/' + id, { token: ADMIN, body });
+  await put('-Lold', { title: 'Old', server1: 'https://old/default', server2: 'https://old/2', link: 'https://old/l', q720: 'https://new/720', seasons: { S1: [{ name: 'E1', server1: 'https://old/e1', q480: 'https://new/e1-480' }] } });
+  const u = (await call('GET', 'movies/-Lold', { token: U1 })).json;
+  assert.equal('server1' in u, false); assert.equal('server2' in u, false); assert.equal('link' in u, false);
+  assert.equal(u.q720, 'https://new/720');
+  assert.equal('server1' in u.seasons.S1[0], false);
+  assert.equal(u.seasons.S1[0].q480, 'https://new/e1-480');
+  const list = (await call('GET', 'movies', { token: U1 })).json;
+  assert.equal('server1' in list['-Lold'], false);
 });
 
 test('multi-path update from root (upcoming checker) works for admin only', async () => {

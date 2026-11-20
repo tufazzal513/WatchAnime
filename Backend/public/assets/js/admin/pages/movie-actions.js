@@ -32,7 +32,6 @@ window.__editMovieFull = (id) => {
     toggleContentType();
 
     if (type === 'movie') {
-        document.getElementById('movie-edit-id').dataset.legacy = movie.server1 || movie.server2 || '';   // old single link: kept only until a quality link is filled
         [480, 720, 1080].forEach(q => { const el = document.getElementById('movie-q' + q); if (el) { el.value = movie['q' + q] || ''; el.dispatchEvent(new Event('input', { bubbles: true })); } });
     } else {
         loadSeasonsFromMovie(movie);
@@ -91,10 +90,7 @@ movieForm.addEventListener('submit', (e) => {
 
     if (type === 'movie') {
         [480, 720, 1080].forEach(q => { const el = document.getElementById('movie-q' + q); formData['q' + q] = el ? el.value.trim() : ''; });
-        const anyQ = formData.q480 || formData.q720 || formData.q1080;
-        const legacy = document.getElementById('movie-edit-id').value ? (document.getElementById('movie-edit-id').dataset.legacy || '') : '';
-        formData.server1 = anyQ ? null : (legacy || null);   // the old single link input is gone; an old link is kept only while no quality is filled
-        formData.server2 = null;
+        formData.server1 = null; formData.server2 = null; formData.link = null;   // the old default link system is removed: old values are wiped on save
     } else {
         let seasonsObj = {};
         const emptySeasons = seasonsData.filter(x => !x.episodes.length);
@@ -104,7 +100,6 @@ movieForm.addEventListener('submit', (e) => {
             const seasonName = season.name || `Season ${idx+1}`;
             seasonsObj[seasonName] = season.episodes.map(ep => ({
                 name: ep.name,
-                server1: (ep.q480 || ep.q720 || ep.q1080) ? '' : (ep.server1 || ep.server2 || ''),
                 q480: ep.q480 || '', q720: ep.q720 || '', q1080: ep.q1080 || ''}));
         });
         formData.seasons = seasonsObj;

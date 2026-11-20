@@ -114,7 +114,7 @@ window.addEpisodeUI = function() {
     }
     const season = seasonsData[selectedSeasonIndex];
     const newEpName = `Episode ${season.episodes.length + 1}`;
-    season.episodes.push({ name: newEpName, server1: ''});
+    season.episodes.push({ name: newEpName });
     selectedEpisodeIndex = season.episodes.length - 1;
     renderEpisodes();
 };
@@ -129,7 +129,7 @@ window.bulkAddEpisodesUI = function() {
     if (isNaN(start) || isNaN(end) || end < start) return;
     const season = seasonsData[selectedSeasonIndex];
     for (let i = start; i <= end; i++) {
-        season.episodes.push({ name: `Episode ${i}`, server1: ''});
+        season.episodes.push({ name: `Episode ${i}` });
     }
     selectedEpisodeIndex = season.episodes.length - 1;
     renderEpisodes();
@@ -139,7 +139,6 @@ window.saveEpisodeEdit = function() {
     const season = seasonsData[selectedSeasonIndex];
     if (!season || !season.episodes[selectedEpisodeIndex]) return;
     const ep = season.episodes[selectedEpisodeIndex];
-    ep.server2 = '';
     [480, 720, 1080].forEach(q => { const el = editQ(q); ep['q' + q] = el ? el.value.trim() : ''; });
     alert('Episode updated');
 };
@@ -165,7 +164,6 @@ function loadSeasonsFromMovie(movie) {
         Object.keys(movie.seasons).forEach(seasonName => {
             const episodes = movie.seasons[seasonName].map(ep => ({
                 name: ep.name,
-                server1: ep.server1 || ep.server2 || '',
                 q480: ep.q480 || '', q720: ep.q720 || '', q1080: ep.q1080 || ''}));
             seasonsData.push({ name: seasonName, episodes });
         });

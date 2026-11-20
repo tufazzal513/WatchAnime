@@ -35,7 +35,6 @@ function validEpisode(ep) {
   return isObject(ep) && Object.keys(ep).length > 0 && (
     typeof ep.name === 'string' || typeof ep.title === 'string' ||
     ep.episodeNumber !== undefined || ep.episode_number !== undefined ||
-    typeof ep.server1 === 'string' || typeof ep.server2 === 'string' ||
     typeof ep.q480 === 'string' || typeof ep.q720 === 'string' || typeof ep.q1080 === 'string'
   );
 }

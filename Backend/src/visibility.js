@@ -16,22 +16,32 @@ export function isLocked(m, now = Date.now()) {
   return !(ms && ms <= now);
 }
 
-const LINK_KEY = /^server\d*$/;
-function scrub(v) {
-  if (Array.isArray(v)) return v.map(scrub);
-  if (v && typeof v === 'object') {
-    const o = {};
-    for (const [k, x] of Object.entries(v)) if (!LINK_KEY.test(k)) o[k] = scrub(x);
-    return o;
-  }
-  return v;
+// The old default/single link system (server1, server2, ..., link) is removed: those keys are never sent to a normal user.
+// Upcoming (locked) titles additionally lose every quality link (q480 / q720 / q1080).
+export const LEGACY_LINK_KEY = /^(server\d*|link)$/;
+const ALL_LINK_KEY = /^(server\d*|link|q\d{3,4})$/;
+function scrubWith(re) {
+  const walk = (v) => {
+    if (Array.isArray(v)) return v.map(walk);
+    if (v && typeof v === 'object') {
+      const o = {};
+      for (const [k, x] of Object.entries(v)) if (!re.test(k)) o[k] = walk(x);
+      return o;
+    }
+    return v;
+  };
+  return walk;
 }
+const scrub = scrubWith(ALL_LINK_KEY);
+const scrubLegacy = scrubWith(LEGACY_LINK_KEY);
+// Remove the legacy keys from a stored movie (used by the one-time database cleanup).
+export const stripLegacyLinks = scrubLegacy;
 
 // One movie as a normal user may see it (undefined = hidden completely).
 export function publicMovie(m, now = Date.now()) {
   if (!m || typeof m !== 'object') return m;
   if (m.isPrivate) return undefined;
-  return isLocked(m, now) ? scrub(m) : m;
+  return isLocked(m, now) ? scrub(m) : scrubLegacy(m);
 }
 export function publicMovies(map, now = Date.now()) {
   if (!map || typeof map !== 'object') return map;

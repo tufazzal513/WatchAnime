@@ -209,7 +209,7 @@ export function createApp(cfg) {
         for (const [id, m] of Object.entries(data)) {
           if (!m || typeof m !== 'object') { out[id] = m; continue; }
           const c = {};
-          for (const [k, v] of Object.entries(m)) if (k !== 'seasons' && !/^server\d*$/.test(k)) c[k] = v;
+          for (const [k, v] of Object.entries(m)) if (k !== 'seasons' && !/^(server\d*|link|q\d{3,4})$/.test(k)) c[k] = v;
           out[id] = c;
         }
         data = out;

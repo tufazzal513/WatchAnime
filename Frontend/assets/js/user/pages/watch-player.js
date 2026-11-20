@@ -4,11 +4,11 @@ let currentEpIndex = -1;
 const PL = { mode: null, hls: null, yt: null, vimeo: null, ytTimer: null, wake: null, fake: false, url: '', playing: false, uiTimer: null, nextTimer: null, resumeAt: 0, upgraded: false, started: false, bright: 1, qs: null, level: null, sel: 'auto', auto: false, srcObj: null, epName: null, switching: false, sessSel: null, autoTimer: 0, stallT: 0, stallAt: 0, stalls: [], noUp: {}, failed: {}, lastSwitch: 0, graceUntil: 0, autoH: 0, autoHMovie: null };
 const $id = (i) => document.getElementById(i);
 const fmtT = (s) => { s = Math.max(0, s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
-const getLink = (o) => (o && (o.server1 || o.server2 || o.link)) || '';
+// The old single/default video link system is removed: only the 480p / 720p / 1080p links are ever played.
 
 // ---------- multi-quality (480p / 720p / 1080p + Auto) ----------
 // A title/episode may carry q480, q720, q1080 (direct links). A box left empty by the admin simply does not exist for the player.
-// The admin has no single-link box any more. Old content that only has the legacy link (server1) still plays as one plain source with no menu; once any quality is filled the legacy link is ignored.
+// The old default/single link (server1, server2, link) is gone completely and is never played, even if some old data still carries it.
 const QKEYS = ['480', '720', '1080'];
 const qNums = (o) => o ? QKEYS.filter(k => typeof o['q' + k] === 'string' && o['q' + k].trim()).map(k => ({ key: k, h: +k, url: o['q' + k].trim() })) : [];
 const qSources = (o) => qNums(o);
@@ -28,11 +28,11 @@ const bufAhead = (v) => { try { for (let i = 0; i < v.buffered.length; i++) if (
 // which link to start with: this title's manual pick (session only) > the user's saved default (Settings) > auto
 const plChoose = (o) => {
     const L = qSources(o), nums = L.filter(x => x.h);
-    if (!nums.length) { PL.qs = null; PL.level = null; PL.auto = false; return { url: getLink(o), key: null }; }
+    if (!nums.length) { PL.qs = null; PL.level = null; PL.auto = false; return { url: '', key: null }; }
     PL.qs = L;
     const hs = nums.map(x => x.h);
     let sel = (PL.sessSel && PL.sessSel.movie === currentMovieId) ? PL.sessSel.key : (typeof mxDefQ === 'function' ? mxDefQ() : 'auto');
-    if (sel === 'default' && !L.some(x => x.key === 'default')) sel = 'auto';
+    if (sel === 'default') sel = 'auto';
     PL.sel = sel; PL.auto = sel === 'auto';
     let key;
     if (sel === 'default') key = 'default';
@@ -243,7 +243,8 @@ const fallbackCopy = (u, done) => { const t = document.createElement('textarea')
 window.nativeShare = () => { const m = allMovies[currentMovieId]; navigator.share({ title: m.title, text: m.title + ' - watch now', url: shareUrl() }).catch(() => {}); closeSheet(); };
 window.reportTitle = () => {
     const m = allMovies[currentMovieId]; const eps = epList();
-    const link = PL.started && PL.url ? PL.url : (m.contentType === 'series' ? getLink(eps[currentEpIndex]) : getLink(m));
+    const src = m.contentType === 'series' ? eps[currentEpIndex] : m, q = qSources(src)[0];
+    const link = PL.started && PL.url ? PL.url : (q ? q.url : '');
     reportBrokenLink('user-report', link || ''); closeSheet(); plToast('Thanks, reported');
 };
 // ---------- player engine ----------
@@ -263,7 +264,7 @@ window.startPlayback = () => {
 const plLoad = (arg, epName, opts) => {
     opts = opts || {};
     if (isLocked(allMovies[currentMovieId])) { plToast('Coming soon'); return; }
-    const srcObj = (arg && typeof arg === 'object') ? arg : { server1: arg || '' };
+    const srcObj = (arg && typeof arg === 'object') ? arg : {};
     let url;
     if (opts.url) url = opts.url;   // quality switch: the link is already chosen
     else { const pk = plChoose(srcObj); url = pk.url; PL.level = pk.key; PL.failed = {}; PL.noUp = {}; PL.stalls = []; }
@@ -311,7 +312,7 @@ const plLoad = (arg, epName, opts) => {
     } else { v.src = url; v.load(); if (!opts.keepPaused) v.play().catch(() => setPlaying(false)); }
     if ('pictureInPictureEnabled' in document || v.webkitSetPresentationMode) $id('pl-pip-b').classList.remove('hidden');
     v.playbackRate = plSpeed(); v.volume = parseFloat(localStorage.getItem('pl_vol') || '1'); $id('pl-vol').value = v.volume;
-    plAutoStart();
+    plAutoStart(); if (!opts.keepPaused) plWatchStart();
 };
 const bindVideo = (v) => {
     v.onloadedmetadata = () => { if (PL.resumeAt && PL.resumeAt < v.duration - (PL.switching ? 1 : 5)) v.currentTime = PL.resumeAt; PL.resumeAt = 0; PL.switching = false; };
@@ -326,8 +327,8 @@ const plFail = (type, url) => {
         PL.failed[PL.level] = 1;
         try { reportBrokenLink(type, url); } catch (e) {}
         const cur = +PL.level || 0;
-        const cand = PL.qs.filter(x => !PL.failed[x.key]).sort((a, b) => (a.h ? 0 : 1) - (b.h ? 0 : 1) || Math.abs(a.h - cur) - Math.abs(b.h - cur) || a.h - b.h)[0];
-        if (cand) { plToast('Could not play this quality, trying ' + (cand.h ? cand.h + 'p' : 'Default')); plSwitch(cand.key, { force: true }); return; }
+        const cand = PL.qs.filter(x => x.h && !PL.failed[x.key]).sort((a, b) => ((a.h < cur) ? 0 : 1) - ((b.h < cur) ? 0 : 1) || Math.abs(a.h - cur) - Math.abs(b.h - cur) || a.h - b.h)[0];
+        if (cand) { plToast('Could not play ' + cur + 'p, switching to ' + cand.h + 'p'); PL.autoH = cand.h; PL.autoHMovie = currentMovieId; plSwitch(cand.key, { force: true, fallback: true }); return; }
     }
     plShowErr(PL.upgraded ? 'This link is not secure (http) and could not be opened. Please tell the admin to use https.' : 'This video could not be loaded.');
     try { reportBrokenLink(type, url); } catch (e) {}
@@ -351,7 +352,7 @@ const plEnded = () => {
 };
 window.plCancelNext = () => { clearInterval(PL.nextTimer); const c = $id('pl-nextcard'); if (c) c.classList.remove('on'); };
 const plTeardown = () => {
-    clearInterval(PL.autoTimer); clearTimeout(PL.stallT); PL.autoTimer = 0; PL.stallT = 0;
+    clearInterval(PL.autoTimer); clearTimeout(PL.stallT); clearTimeout(PL.wdT); PL.autoTimer = 0; PL.stallT = 0;
     clearInterval(PL.ytTimer); try { if (PL.yt && PL.yt.destroy) PL.yt.destroy(); } catch (e) {} PL.yt = null;
     try { if (PL.vimeo && PL.vimeo.destroy) PL.vimeo.destroy(); } catch (e) {} PL.vimeo = null;
     if (PL.hls) { PL.hls.destroy(); PL.hls = null; }
@@ -405,6 +406,7 @@ const plSwitch = (key, o) => {
     const t = PL.mode === 'iframe' ? 0 : plCur(), wasPlaying = PL.playing;
     if (!o.force) plSave(true);                       // remember the position first
     PL.resumeAt = t > 1 ? t : 0; PL.level = key;
+    if (o.fallback) { PL.sessSel = { movie: currentMovieId, key: 'auto' }; PL.sel = 'auto'; PL.auto = true; }   // chosen quality could not load: carry on in Auto for this title only (saved default stays)
     plLoad(PL.srcObj, PL.epName, { switching: true, url: it.url, keepPaused: !wasPlaying && !o.force });
 };
 // the viewer picked a quality in the player: valid for this title until they leave it; the saved default is never changed here
@@ -423,7 +425,7 @@ window.plPickQ = (key) => {
 // ----- Auto: start from the network speed, step down when it keeps buffering, step up slowly when it is smooth -----
 const plAutoLevels = () => (PL.qs || []).filter(x => x.h).map(x => x.h).sort((a, b) => a - b);
 const plStallStart = (v) => {
-    if (!PL.auto || !PL.qs || PL.switching || v.seeking || Date.now() < PL.graceUntil) return;
+    if (!PL.qs || PL.switching || v.seeking || Date.now() < PL.graceUntil) return;
     if (!PL.stallAt) PL.stallAt = Date.now();
     clearTimeout(PL.stallT); PL.stallT = setTimeout(() => plAutoDown(), 3500);   // one long stall
 };
@@ -434,8 +436,9 @@ const plStallEnd = () => {
     if (PL.stalls.length >= 2) { PL.stalls = []; plAutoDown(); }                   // repeated short stalls
 };
 const plAutoDown = () => {
-    if (!PL.auto || !PL.qs || PL.switching || Date.now() < PL.graceUntil) return;
+    if (!PL.qs || PL.switching || Date.now() < PL.graceUntil) return;
     const cur = +PL.level, lower = plAutoLevels().filter(h => h < cur); if (!lower.length) return;
+    if (!PL.auto) { PL.sessSel = { movie: currentMovieId, key: 'auto' }; PL.sel = 'auto'; PL.auto = true; }   // fixed quality keeps freezing: continue in Auto for this title (saved default untouched)
     const nh = lower[lower.length - 1]; PL.noUp[cur] = Date.now() + 180000; PL.autoH = nh; PL.autoHMovie = currentMovieId;
     plToast('Slow connection: switching to ' + nh + 'p'); plSwitch(String(nh));
 };
@@ -445,6 +448,17 @@ const plAutoTick = () => {
     const cur = +PL.level, up = plAutoLevels().filter(h => h > cur)[0]; if (!up || (PL.noUp[up] || 0) > now) return;
     const c = netConn(); if (c && typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < (up >= 1080 ? 5 : 2.5)) return;
     PL.autoH = up; PL.autoHMovie = currentMovieId; plToast('Switching to ' + up + 'p'); plSwitch(String(up));
+};
+// Watchdog: the chosen quality never started (stuck on the spinner) or keeps freezing -> do not stay stuck, drop to a lower quality and carry on in Auto.
+const plWatchStart = () => {
+    clearTimeout(PL.wdT);
+    if (!PL.qs || PL.qs.length < 2 || !(PL.mode === 'direct' || PL.mode === 'hls')) return;
+    const lvl = PL.level, mv = currentMovieId;
+    PL.wdT = setTimeout(() => {
+        const v = vid(); if (!v || PL.level !== lvl || mv !== currentMovieId || !PL.started) return;
+        if (v.readyState >= 3 || (v.currentTime > 0 && !v.paused)) return;   // it is playing fine
+        plFail(PL.mode, PL.url);                                                // -> tries the next lower quality automatically
+    }, 12000);
 };
 const plAutoStart = () => { clearInterval(PL.autoTimer); PL.autoTimer = 0; if (PL.auto && PL.qs && (PL.mode === 'direct' || PL.mode === 'hls')) PL.autoTimer = setInterval(plAutoTick, 5000); };
 window.plPip = async () => { const v = vid(); try { if (document.pictureInPictureElement) await document.exitPictureInPicture(); else if (v.requestPictureInPicture) await v.requestPictureInPicture(); else if (v.webkitSetPresentationMode) v.webkitSetPresentationMode(v.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture'); } catch (e) { plToast('Picture-in-picture is not available'); } };

@@ -98,11 +98,11 @@ test('backup -> Telegram (.db + .json) -> brand-new server restores the latest',
 test('movies?lite=1 drops episode lists and links, full title still has them', async () => {
   const main = createApp({ dbPath: path.join(dir, 'lite.db'), backupDir: path.join(dir, 'lbk'), devInsecureAuth: true, adminUid: 'admin1', log: quiet }); apps.push(main);
   const b = await listen(main);
-  main.store.writeAt(['movies', 'a'], { title: 'A', posterUrl: 'p', description: 'd', contentType: 'series', seasons: { S1: [{ name: 'E1', server1: 'http://x' }] }, server1: 'http://y' });
+  main.store.writeAt(['movies', 'a'], { title: 'A', posterUrl: 'p', description: 'd', contentType: 'series', seasons: { S1: [{ name: 'E1', q720: 'http://x' }] }, q720: 'http://y' });
   const lite = (await api(b, 'GET', '/api/db/movies?lite=1', { token: U1 })).json;
   assert.deepEqual(Object.keys(lite.a).sort(), ['contentType', 'description', 'posterUrl', 'title']);
   const full = (await api(b, 'GET', '/api/db/movies/a', { token: U1 })).json;
-  assert.equal(full.seasons.S1[0].server1, 'http://x');
+  assert.equal(full.seasons.S1[0].q720, 'http://x');
   const full2 = (await api(b, 'GET', '/api/db/movies', { token: U1 })).json;
   assert.ok(full2.a.seasons);
 });
