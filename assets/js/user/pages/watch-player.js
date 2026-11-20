@@ -8,10 +8,10 @@ const getLink = (o) => (o && (o.server1 || o.server2 || o.link)) || '';
 
 // ---------- multi-quality (480p / 720p / 1080p + Auto) ----------
 // A title/episode may carry q480, q720, q1080 (direct links). A box left empty by the admin simply does not exist for the player.
-// The old single link (server1) stays: alone when no quality is filled, otherwise it is listed as "Default" in the menu.
+// The admin has no single-link box any more. Old content that only has the legacy link (server1) still plays as one plain source with no menu; once any quality is filled the legacy link is ignored.
 const QKEYS = ['480', '720', '1080'];
 const qNums = (o) => o ? QKEYS.filter(k => typeof o['q' + k] === 'string' && o['q' + k].trim()).map(k => ({ key: k, h: +k, url: o['q' + k].trim() })) : [];
-const qSources = (o) => { const L = qNums(o); if (!L.length) return []; const d = (getLink(o) || '').trim(); if (d) L.push({ key: 'default', h: 0, url: d }); return L; };
+const qSources = (o) => qNums(o);
 // closest available height: the same one, else the closest LOWER one (saves data), else the closest higher one
 const nearestQ = (hs, want) => {
     if (hs.includes(want)) return want;
