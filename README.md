@@ -1,49 +1,48 @@
-# WAnime v2.3 User Frontend
+# WAnime v2.3 - Frontend + Backend
 
-This folder is the User App intended for GitHub Pages.
+This package contains the two deployable parts in separate folders.
 
-## Structure
-- `index.html` - User App entry point
-- `pages/` - User-facing HTML pages
-- `partials/` - Reusable User App HTML fragments
-- `assets/css/user/` - User App styles
-- `assets/js/user/` - User App JavaScript
-- `assets/js/shared/` - Firebase configuration, API client, and taxonomy shared by browser code
-- `tools/cleanup-old-data.js` - Existing maintenance utility
+## Folder layout
 
-## API connection
-`assets/js/shared/firebase-config.js` sets `MX_API_BASE` to `https://d3g3pb.bot-keep.xyz`. Change it only if the backend domain changes.
+- `Frontend/` - User App for GitHub Pages. Upload the **contents** of this folder to the GitHub Pages repository root.
+- `Backend/` - MAIN server: Node.js + SQLite API and Admin Panel. Upload the **contents** of this folder to the Pterodactyl server root.
+- `Worker/Backend/` - WORKER server (read replica). **No Admin Panel.** Upload its **contents** to each worker server root. See `Worker/Backend/README.md`.
 
-## URLs
-The app uses real paths (no `#`). Every page has its own address:
+## Frontend
 
-| Page | URL |
-|---|---|
-| Home | `/` |
-| Search / results | `/search`, `/search?q=attack on titan` |
-| Categories | `/categories` |
-| Browse by one filter | `/genre/action`, `/industry/bollywood`, `/language/hindi`, `/type/series`, `/year/2024` |
-| Browse with several filters | `/browse?genre=action&language=hindi&tab=series&sort=top` |
-| Title (movie or series) | `/movie/<id>/<title-slug>` |
-| Series season / episode | `/movie/<id>/<title-slug>?s=2&e=5` |
-| Log in / Sign up / Forgot password | `/login`, `/signup`, `/forgot-password` |
-| Notifications | `/notifications` |
-| Profile | `/profile` |
-| My List | `/my-list` |
-| Watch history | `/history` |
+- Entry: `Frontend/index.html`
+- User pages: `Frontend/pages/`
+- HTML partials: `Frontend/partials/`
+- User CSS: `Frontend/assets/css/user/`
+- User JavaScript: `Frontend/assets/js/user/`
+- Shared browser code: `Frontend/assets/js/shared/`
+- `MX_API_BASE` is set in `Frontend/assets/js/shared/firebase-config.js` to `https://d3g3pb.bot-keep.xyz`.
 
-Logged-out visitors are sent to `/login?next=<the page they asked for>` and return there after logging in; a logged-in user opening `/login` goes home (or to `next`).
+## Backend
 
-The title slug is only for looks; the `<id>` decides which title opens. Old `#movie=<id>` / `#/search` links are converted to the new paths automatically.
+- API source: `Backend/src/`
+- Admin UI: `Backend/public/admin/`
+- Admin CSS: `Backend/public/assets/css/admin/`
+- Admin/shared JS: `Backend/public/assets/js/admin/` and `Backend/public/assets/js/shared/`
+- Environment template: `Backend/.env.example`
+- Tests: `Backend/test/`
 
-## Hosting (deep links must survive a refresh)
-Because the paths are real, the host must serve `index.html` for unknown paths:
-- **GitHub Pages + custom domain** - `404.html` (included) does this. Keep `404.html`, `index.html` and `.nojekyll` in the repository root. Upload the *contents* of this folder, not the folder itself. The site must live at the domain root (custom domain), not in a `/repo-name/` sub-folder.
-- **Apache / InfinityFree / cPanel** - `.htaccess` (included).
-- **Netlify / Cloudflare Pages** - `_redirects` (included).
-- **Firebase Hosting** - `firebase.json` already has the rewrite.
+The backend's `public/assets/js/shared/firebase-config.js` intentionally keeps `MX_API_BASE` empty so the Admin Panel uses same-origin `/api/...` requests.
 
-Note: GitHub Pages answers deep links with a 404 status before 404.html redirects. Visitors never notice, but search engines may not index individual title pages. Netlify / Cloudflare Pages / Firebase (status 200) avoid that.
+## Deployment safety
 
-## Deploy
-Upload the contents of this folder to the GitHub Pages repository root. Do not upload this folder as a nested directory. Serve over HTTPS/HTTP; opening `index.html` as `file://` will not work because the app fetches its page partials.
+1. For GitHub Pages, upload the contents of `Frontend/` to the repository root. Do not upload the `Frontend` folder itself as a nested folder.
+2. For Pterodactyl, upload the contents of `Backend/` to the server root. Do not upload the `Backend` folder itself as a nested folder.
+3. Preserve the existing server `.env`, `data/` database, backups, and Telegram session. They are runtime data and are intentionally not included in this source ZIP.
+4. Set `ADMIN_UID` in the hosting environment. Keep the existing database path and host-provided `PORT`.
+5. Admin URL: `https://d3g3pb.bot-keep.xyz/admin`.
+
+## Important separation
+
+The Backend package contains only Admin UI assets, shared Admin browser libraries, and API/server code. Duplicate User Panel CSS/JavaScript assets have been removed from Backend because the User App is deployed from `Frontend/`. The Frontend retains its complete User Panel code and its own shared libraries. No application data or database file is included in this ZIP.
+
+## Multi-quality video (480p / 720p / 1080p / Auto)
+- Admin: each movie and each episode has three direct-link inputs, **480p / 720p / 1080p** (the old single Video Link box is removed; old content that only has the legacy link keeps playing until a quality link is added) (`q480`, `q720`, `q1080`). An empty box = that quality is hidden in the player.
+- Player: Auto + the available qualities in the quality (cog) menu. Switching quality continues from the exact second watched.
+- User: Profile -> **Settings** (`/settings`) -> Default video quality (Auto / 480p / 720p / 1080p). Saved at `users/<uid>/settings/defaultQuality`. Changing quality inside the player never changes this saved default.
+- Missing quality -> closest available (lower first, then higher). No server/Worker change is needed (the data is schema-less).

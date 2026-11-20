@@ -1,0 +1,17 @@
+/* Admin -> Settings: tabs + one consistent card style */
+#settings .mx-tabs{display:flex;gap:6px;overflow-x:auto;padding:4px;margin-bottom:18px;background:var(--surface,#181818);border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;position:sticky;top:0;z-index:5;scrollbar-width:none}
+#settings .mx-tabs::-webkit-scrollbar{display:none}
+#settings .mx-tab{flex:1 0 auto;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:9px;color:#b3b3b3;font-size:13px;font-weight:600;white-space:nowrap;background:transparent;border:0;cursor:pointer;transition:background .15s,color .15s}
+#settings .mx-tab:hover{background:var(--surface2,#242424);color:#fff}
+#settings .mx-tab.active{background:var(--nf,#e50914);color:#fff}
+#settings .mx-card{background:var(--surface,#181818);border:1px solid var(--line,rgba(255,255,255,.08));border-radius:12px;padding:20px;margin-bottom:18px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+#settings .mx-card-title{display:flex;align-items:center;font-size:17px;font-weight:700;color:#fff;margin:0 0 14px;padding-bottom:12px;border-bottom:1px solid var(--line,rgba(255,255,255,.08))}
+#settings .mx-card-title i{color:var(--nf,#e50914);width:22px}
+#settings .mx-sub{font-size:13px;font-weight:700;color:#e5e7eb;margin:4px 0 8px}
+#settings .mx-card>p.text-xs{line-height:1.5}
+#settings [data-stab]{display:none}
+#settings[data-tab="server"] [data-stab="server"],
+#settings[data-tab="app"] [data-stab="app"],
+#settings[data-tab="security"] [data-stab="security"],
+#settings[data-tab="community"] [data-stab="community"]{display:block;animation:fadeIn .25s ease-in-out}
+@media(max-width:480px){#settings .mx-tab span{font-size:12px}#settings .mx-tab{padding:9px 11px}#settings .mx-card{padding:16px}}
