@@ -47,6 +47,8 @@ auth.onAuthStateChanged(async (user) => {
             }
         });
 
+        try { localStorage.setItem('mx_li', '1'); } catch (e) {}      // lets the refresh screen know which skeleton to draw
+
         // সবকিছু ঠিক থাকলে অ্যাপে প্রবেশ করানো
         authScreen.classList.remove('visible');
         authScreen.style.display = 'none'; 
@@ -71,11 +73,10 @@ auth.onAuthStateChanged(async (user) => {
             showPage(route.page, false);
         }
 
-        // start loading the data at once; the loader only fades out on top of it
+        // start loading the data at once. The loader (skeleton on a refresh) stays until the page content is ready, then fades away.
+        window.__mxReadyDone = false; window.__mxMoviesOk = false; window.__mxBannersOk = false;
         (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
-        const quick = initialLoader.classList.contains('quiet');     // refresh: short, smooth fade
-        initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
-        setTimeout(() => { initialLoader.style.display = 'none'; }, quick ? 260 : 500);
+        setTimeout(() => window.mxReady(), 8000);                   // never hold the screen forever (slow or offline)
 
 
     } else {
@@ -83,6 +84,7 @@ auth.onAuthStateChanged(async (user) => {
             userStatusRef.off();
             userStatusRef = null;
         }
+        try { localStorage.setItem('mx_li', '0'); } catch (e) {}
         window.__startupRouteDone = false;      // the next login applies the URL again
         window.mxAuthRoute();
         authScreen.style.display = 'flex';
@@ -195,4 +197,18 @@ window.mxShell = (r) => {
         el('sr-tabs').innerHTML = '';
         el('search-results').innerHTML = Array.from({ length: 6 }, () => '<div class="mxs-row"><div class="skeleton mxs-thumb"></div><div style="flex:1"><div class="skeleton mxs-line" style="width:70%"></div><div class="skeleton mxs-line" style="width:40%"></div></div></div>').join('');
     }
+};
+
+// The loader / refresh skeleton leaves only when what is under it is ready (movie list + hero banners on Home).
+window.mxReady = () => {
+    if (window.__mxReadyDone) return;
+    window.__mxReadyDone = true;
+    const quick = initialLoader.classList.contains('quiet');
+    initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
+    setTimeout(() => { initialLoader.style.display = 'none'; }, quick ? 260 : 500);
+};
+window.mxTryReady = () => {
+    const home = document.getElementById('home-page');
+    const needBanners = !!(home && home.classList.contains('active'));
+    if (window.__mxMoviesOk && (window.__mxBannersOk || !needBanners)) window.mxReady();
 };

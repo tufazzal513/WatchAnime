@@ -8,12 +8,14 @@
 @media (prefers-reduced-motion:reduce){.skeleton::after{animation:none}}
 
 /* Home placeholders: same size and corners as the real cards */
-.sk-title{height:22px;width:150px;border-radius:5px}
+.sk-title{height:22px;width:150px;border-radius:5px;margin-bottom:12px}
+.sk-row{gap:10px;margin-bottom:26px}
 .sk-card{border-radius:6px}
 
 /* ---- refresh screen: replaces the blank dark page; drawn by splash-boot.js ---- */
 /* NOTE: no display rule on the loader itself - the script hides it with style.display='none' and an !important here would keep it on top of the page */
 #initial-loader.quiet{background:var(--bg,#141414)!important;transition:opacity .25s ease-out;pointer-events:none}
+#initial-loader.quiet>.mxb-retry{display:flex!important}
 #initial-loader.quiet>.mx-boot{display:block!important;width:100%;max-width:90rem;margin:0 auto;height:100%;overflow:hidden}
 .mx-boot{padding-bottom:70px;animation:mxFade .18s ease-out both}
 @keyframes mxFade{from{opacity:0}to{opacity:1}}
@@ -23,7 +25,12 @@
 .mxb-logo-img{display:block;height:30px;width:auto;max-width:180px;object-fit:contain}
 .mxb-icons{display:flex;gap:14px}
 .mxb-dot{width:34px;height:34px;border-radius:50%;flex:none}
-.mxb-hero{width:100%;height:min(46vh,380px);border-radius:0}
+.mxb-homebox{position:relative}
+.mxb-over{position:absolute;left:0;right:0}
+.mxb-bar.mxb-over{top:0}
+.mxb-chips.mxb-over{top:62px;left:0;right:auto;padding:0 16px}
+.mxb-hero{width:100%;height:min(62vh,480px);border-radius:0}
+.mxb-pull{margin-top:-40px;position:relative}
 .mxb-chips{display:flex;gap:10px;padding:14px 16px 6px;overflow:hidden}
 .mxb-chip{height:36px;border-radius:999px;flex:none}
 .mxb-sec{padding:14px 16px}
@@ -42,7 +49,19 @@
 .mxb-avatar{width:76px;height:76px;border-radius:50%;flex:none}
 .mxb-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:8px 16px}
 .mxb-stat{height:64px;border-radius:10px}
-@media(min-width:768px){.mxb-card{width:160px;height:240px}.mxb-hero{height:min(56vh,480px)}.mxb-player{max-height:70vh}}
+@media(min-width:768px){.mxb-card{width:160px;height:240px}.mxb-chips.mxb-over{top:76px;padding:0 48px}.mxb-player{max-height:70vh}}
+
+/* login / sign up refresh screen */
+#initial-loader.quiet.quiet-auth{background:#000!important}
+.mxb-auth{min-height:100%;display:flex;align-items:center;justify-content:center;padding:24px 16px}
+.mxb-card-auth{width:100%;max-width:26rem;padding:32px 28px;border-radius:6px;background:rgba(255,255,255,.04)}
+.mxb-card-auth .mxb-brand{text-align:center}
+.mxb-card-auth .mxb-logo{margin:0 auto;font-size:30px}
+.mxb-card-auth .mxb-logo-img{margin:0 auto}
+.mxb-input{height:48px;border-radius:4px;margin-bottom:16px}
+.mxb-red{background:var(--nf,#e50914)!important;opacity:.55}
+.mxb-retry{position:fixed;left:0;right:0;bottom:calc(24px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;align-items:center;gap:10px;color:#9a9a9a;font-size:13px;pointer-events:auto;z-index:2}
+.mxb-retry button{padding:9px 22px;border-radius:999px;background:#fff;color:#000;font-weight:700;font-size:14px}
 
 /* ---- in-app page shells (a refresh on a title / browse / search page waits for data on THAT page) ---- */
 .mxs-movie{max-width:90rem;margin:0 auto}

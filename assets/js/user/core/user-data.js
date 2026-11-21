@@ -22,9 +22,10 @@ const loadInitialData = () => {
         if (typeof renderMyListPage === 'function') renderMyListPage();
         if (typeof renderProfileStats === 'function') renderProfileStats();
         if (typeof renderHistoryPage === 'function') renderHistoryPage();
+        window.__mxMoviesOk = true; if (typeof mxTryReady === 'function') mxTryReady();
     });
 
-    db.ref('banners').on('value', s => renderBanners(s.val()));
+    db.ref('banners').on('value', s => { renderBanners(s.val()); window.__mxBannersOk = true; if (typeof mxTryReady === 'function') mxTryReady(); });
 
     db.ref('socialLinks').on('value', s => renderSocials(s.val()));
     db.ref('notifications').on('value', s => renderNotifications(s.val()));

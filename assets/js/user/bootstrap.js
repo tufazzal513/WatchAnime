@@ -42,6 +42,12 @@
       "core/user-data.js"
   ];
 
+  // download every script at the same time (they still RUN one by one, in order): much shorter blank time on slow networks
+  SCRIPTS.forEach(function (f) {
+    var l = document.createElement('link'); l.rel = 'preload'; l.as = 'script'; l.href = JS_ROOT + f;
+    document.head.appendChild(l);
+  });
+
   function fail(err) {
     console.error(err);
     var loader = document.getElementById('initial-loader');
