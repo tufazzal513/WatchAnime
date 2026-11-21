@@ -25,6 +25,8 @@ button.pf-stat:active{background:#222}
 .pf-tx b{font-size:15px;font-weight:600;color:#f1f1f1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pf-tx small{font-size:12px;color:#8c8c8c;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pf-go{flex:none;font-size:12px;color:#666}
+.pf-val{flex:none;font-size:13px;font-weight:600;color:#bdbdbd;background:#262626;border-radius:999px;padding:4px 10px;min-width:56px;text-align:center}
+#pf-clear-cache.busy{opacity:.6;pointer-events:none}
 .pf-empty{padding:18px;text-align:center;font-size:13px;color:#777}
 
 .pf-out{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;margin-top:26px;padding:14px;border-radius:10px;background:#232323;color:#ff5a64;font-size:15px;font-weight:700;border:1px solid #2f2f2f}

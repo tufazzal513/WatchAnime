@@ -107,6 +107,46 @@
 // Show the intro only once per browser session; a refresh keeps a quiet dark screen (no flash)
 (function () {
     const loader = document.getElementById('initial-loader');
-    if (sessionStorage.getItem('movex_splash_seen')) { if (loader) loader.classList.add('quiet'); }
+    if (sessionStorage.getItem('movex_splash_seen')) { if (loader) { loader.classList.add('quiet'); try { mxBootSkeleton(loader); } catch (e) {} } }
     else sessionStorage.setItem('movex_splash_seen', '1');
 })();
+
+
+// On a refresh there is no intro. Instead the loader draws a skeleton of the page the address bar points to
+// (Home, a title, Browse, Search, Profile ...), so the screen never looks blank and never jumps to another page.
+function mxBootSkeleton(loader) {
+    const r = MXR.parse(location.pathname, location.search);
+    if (r && r.auth) return;                                   // login screens: nothing to preview
+    const page = r ? r.page : 'home-page';
+    const kind = r && (r.movieId || page === 'movie-details-page') ? 'movie'
+        : page === 'home-page' ? 'home'
+        : (r && r.browse) || page === 'category-movies-page' || page === 'categories-page' ? 'grid'
+        : page === 'search-page' ? 'search'
+        : page === 'profile-page' ? 'profile' : 'list';
+    const sk = (c, st) => '<div class="skeleton ' + c + '"' + (st ? ' style="' + st + '"' : '') + '></div>';
+    const cards = (n, c) => Array.from({ length: n }, () => '<div>' + sk(c || 'mxb-poster') + sk('mxb-line', 'width:70%;margin-top:8px') + '</div>').join('');
+    const strip = (n) => '<div class="mxb-strip">' + Array.from({ length: n }, () => sk('mxb-card')).join('') + '</div>';
+    const rows = (n) => Array.from({ length: n }, () => '<div class="mxb-row">' + sk('mxb-thumb') + '<div style="flex:1">' + sk('mxb-line', 'width:68%') + sk('mxb-line', 'width:38%;margin-top:10px') + '</div></div>').join('');
+    const logo = localStorage.getItem('movex_app_logo');
+    const top = '<div class="mxb-bar"><div class="mxb-brand">' + (logo ? '<img class="mxb-logo-img" alt="">' : '<span class="mxb-logo"></span>') + '</div>'
+        + '<div class="mxb-icons">' + sk('mxb-dot') + sk('mxb-dot') + sk('mxb-dot') + '</div></div>';
+    const head = (withFilter) => '<div class="mxb-bar">' + sk('mxb-dot') + sk('mxb-line', 'width:42%;height:20px;margin:0 auto 0 14px') + (withFilter ? sk('mxb-dot') : '') + '</div>';
+    let html = '';
+    if (kind === 'home') html = top + sk('mxb-hero') + '<div class="mxb-chips">' + ['70px', '78px', '70px', '66px', '92px'].map(w => sk('mxb-chip', 'width:' + w)).join('') + '</div>'
+        + '<div class="mxb-sec">' + sk('mxb-line', 'width:150px;height:22px;margin-bottom:12px') + strip(8) + sk('mxb-line', 'width:130px;height:22px;margin:26px 0 12px') + strip(8) + '</div>';
+    else if (kind === 'movie') html = sk('mxb-player') + '<div class="mxb-sec">' + sk('mxb-line', 'width:60%;height:26px') + sk('mxb-line', 'width:38%;margin-top:12px')
+        + '<div class="mxb-btns">' + sk('mxb-pill') + sk('mxb-pill') + '</div>' + sk('mxb-line', 'width:100%;margin-top:6px') + sk('mxb-line', 'width:92%;margin-top:10px') + sk('mxb-line', 'width:66%;margin-top:10px') + '</div>';
+    else if (kind === 'grid') html = head(true) + '<div class="mxb-chips">' + ['44px', '70px', '66px', '62px'].map(w => sk('mxb-chip', 'width:' + w)).join('') + '</div><div class="mx-grid">' + cards(12) + '</div>';
+    else if (kind === 'search') html = '<div class="mxb-bar">' + sk('mxb-dot') + sk('mxb-search') + '</div><div class="mxb-sec">' + rows(7) + '</div>';
+    else if (kind === 'profile') html = top + '<div class="mxb-prof">' + sk('mxb-avatar') + '<div style="flex:1">' + sk('mxb-line', 'width:55%;height:20px') + sk('mxb-line', 'width:75%;margin-top:10px') + '</div></div>'
+        + '<div class="mxb-stats">' + sk('mxb-stat') + sk('mxb-stat') + sk('mxb-stat') + '</div><div class="mxb-sec">' + rows(5).replace(/mxb-thumb/g, 'mxb-ico') + '</div>';
+    else html = head(false) + '<div class="mxb-sec">' + rows(7) + '</div>';
+    const box = document.createElement('div');
+    box.className = 'mx-boot';
+    box.setAttribute('aria-hidden', 'true');
+    box.innerHTML = html;
+    const t = box.querySelector('.mxb-logo'), im = box.querySelector('.mxb-logo-img');
+    if (t) t.textContent = localStorage.getItem('movex_app_name') || 'MoveX';
+    if (im) im.src = logo;
+    loader.appendChild(box);
+}

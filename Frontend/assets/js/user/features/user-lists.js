@@ -105,11 +105,48 @@ window.renderProfileStats = () => {
     if (!a || !b) return;
     const known = Object.keys(allMovies || {}).length > 0;
     const count = (m) => Object.keys(m || {}).filter(id => !known || allMovies[id]).length;   // titles that are private / removed are not counted
-    a.textContent = count(myListIds); b.textContent = count(progressMap);
+    a.textContent = known ? count(myListIds) : '-'; b.textContent = known ? count(progressMap) : '-';   // '-' while the list is still loading (no fake 0)
 };
-window.pfClearSearch = () => {
-    if (typeof clearSearchHistory === 'function') clearSearchHistory();
-    const t = document.getElementById('pf-clear-sub'); if (t) { t.textContent = 'Search history cleared'; setTimeout(() => { t.textContent = 'Remove your recent searches from this device'; }, 2500); }
+// --- profile: saved data on this device (how big it is + clear it) ---
+// Cleared: the data cache (movie lists), Cache Storage, quality-test flags, server list.
+// Kept: your login, watch history, My List, theme, player settings and your search history.
+const pfBytes = (n) => n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(n < 10485760 ? 2 : 1) + ' MB';
+window.mxCacheSize = async () => {
+    let total = 0;
+    try { if (window.mxDbCache) total += await window.mxDbCache.size(); } catch (e) {}
+    try {
+        if (window.caches) for (const name of await caches.keys()) {
+            const c = await caches.open(name);
+            for (const rq of await c.keys()) { const rs = await c.match(rq); if (rs) total += (await rs.clone().blob()).size; }
+        }
+    } catch (e) {}
+    try { ['mx_servers'].forEach(k => { const v = localStorage.getItem(k); if (v) total += v.length * 2; }); } catch (e) {}
+    return total;
+};
+window.pfCacheRefresh = async () => {
+    const el = document.getElementById('pf-cache-size'); if (!el) return;
+    try { el.textContent = pfBytes(await mxCacheSize()); } catch (e) { el.textContent = '-'; }
+};
+window.pfClearCache = () => {
+    const btn = document.getElementById('pf-clear-cache'), sub = document.getElementById('pf-cache-sub');
+    const idle = 'Free up space. Your account and settings stay safe';
+    const run = async () => {
+        if (btn) btn.classList.add('busy');
+        if (sub) sub.textContent = 'Clearing...';
+        const before = await mxCacheSize();
+        try { if (window.mxDbCache) await window.mxDbCache.clear(); } catch (e) {}
+        try { if (window.caches) for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+        try { if (navigator.serviceWorker) for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister(); } catch (e) {}
+        try {
+            localStorage.removeItem('mx_servers');
+            Object.keys(sessionStorage).filter(k => k.indexOf('sq_') === 0).forEach(k => sessionStorage.removeItem(k));
+        } catch (e) {}
+        if (btn) btn.classList.remove('busy');
+        if (sub) { sub.textContent = 'Cache cleared. Freed ' + pfBytes(before); setTimeout(() => { sub.textContent = idle; }, 3500); }
+        pfCacheRefresh();
+    };
+    if (typeof showCustomModal === 'function') showCustomModal('confirm', 'Clear cached data on this device? Your account, watch history, My List and settings are not affected.', run);
+    else run();
 };
 
 // --- WATCH HISTORY page (grouped by day, delete one, clear all) ---

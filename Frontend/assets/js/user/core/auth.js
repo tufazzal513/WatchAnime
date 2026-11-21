@@ -66,15 +66,16 @@ auth.onAuthStateChanged(async (user) => {
             if (typeof showCustomModal === 'function') showCustomModal('alert', 'Page not found.');
         } else if (route.movieId || route.browse || (route.page === 'search-page' && route.q)) {
             window.__mxPendingRoute = route;
+            mxShell(route);                 // show the right page (with skeleton) right now, not Home, while the data loads
         } else {
             showPage(route.page, false);
         }
 
+        // start loading the data at once; the loader only fades out on top of it
+        (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
+        const quick = initialLoader.classList.contains('quiet');     // refresh: short, smooth fade
         initialLoader.style.opacity = '0';
-        setTimeout(() => {
-            initialLoader.style.display = 'none';
-            (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
-        }, 500);
+        setTimeout(() => { initialLoader.style.display = 'none'; }, quick ? 260 : 500);
 
 
     } else {
@@ -160,6 +161,7 @@ const showPage = (pageId, pushToHistory = true, urlOverride) => {
     MXR.nav(urlOverride || window.mxPageUrl(pageId), { page: pageId }, !pushToHistory);
     MXR.setTitle(pageId === 'category-movies-page' && window.mxBrowseTitle ? window.mxBrowseTitle() : MXR.pageTitle(pageId));
 
+    if (pageId === 'profile-page' && typeof pfCacheRefresh === 'function') pfCacheRefresh();
     if (pageId === 'search-page' && typeof resetSearchPage === 'function') resetSearchPage();
     if (pageId === 'settings-page' && typeof renderSettingsPage === 'function') { renderSettingsPage(); window.scrollTo(0, 0); }
     if (pageId === 'history-page' && typeof renderHistoryPage === 'function') { renderHistoryPage(); window.scrollTo(0, 0); }
@@ -168,3 +170,29 @@ const showPage = (pageId, pushToHistory = true, urlOverride) => {
 // in-app Back arrow: go back if the app pushed an entry, otherwise (landed on a deep link) go home
 window.goBack = () => { if (history.state && history.state.d > 0) history.back(); else showPage('home-page', false); };
 navBtns.forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
+
+
+// Refresh on /movie/..., /genre/..., /browse..., /search?q=...: the data is not here yet, so show THAT page with skeleton blocks
+// (instead of the Home page for a moment). mxApplyRoute() replaces it with the real content once the data arrives.
+window.mxShell = (r) => {
+    if (!r) return;
+    const url = location.pathname + location.search, el = (id) => document.getElementById(id);
+    const cards = (n) => Array.from({ length: n }, () => '<div class="mxs-card"><div class="skeleton mxs-poster"></div><div class="skeleton mxs-line" style="width:72%"></div></div>').join('');
+    if (r.movieId) {
+        showPage('movie-details-page', false, url);
+        el('movie-details-content').innerHTML = '<div class="mxs-movie"><div class="skeleton mxs-player"></div><div class="mxs-body">'
+            + '<div class="skeleton mxs-line" style="width:62%;height:26px"></div><div class="skeleton mxs-line" style="width:40%;margin-top:12px"></div>'
+            + '<div class="mxs-btns"><div class="skeleton mxs-pill"></div><div class="skeleton mxs-pill"></div></div>'
+            + '<div class="skeleton mxs-line" style="width:100%"></div><div class="skeleton mxs-line" style="width:94%"></div><div class="skeleton mxs-line" style="width:70%"></div></div></div>';
+    } else if (r.browse) {
+        showPage('category-movies-page', false, url);
+        el('category-movies-grid').innerHTML = cards(12);
+    } else if (r.page === 'search-page') {
+        showPage('search-page', false, url);
+        el('search-input').value = r.q || '';
+        el('search-home').classList.add('hidden');
+        el('search-view').classList.remove('hidden');
+        el('sr-tabs').innerHTML = '';
+        el('search-results').innerHTML = Array.from({ length: 6 }, () => '<div class="mxs-row"><div class="skeleton mxs-thumb"></div><div style="flex:1"><div class="skeleton mxs-line" style="width:70%"></div><div class="skeleton mxs-line" style="width:40%"></div></div></div>').join('');
+    }
+};

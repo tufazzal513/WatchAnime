@@ -124,6 +124,31 @@
 
   // ---- shared GET cache: one request per path, conditional via ETag ----
   var cache = {}, inflight = {};
+  // used by the profile page: how big the saved data is, and a way to wipe it (the server data itself is untouched)
+  window.mxDbCache = {
+    size: function () {
+      return idb().then(function (d) {
+        if (!d) return 0;
+        return new Promise(function (res) {
+          var n = 0;
+          try {
+            var rq = d.transaction('kv').objectStore('kv').openCursor();
+            rq.onsuccess = function () { var c = rq.result; if (!c) return res(n); n += (String(c.key).length + String((c.value && c.value.text) || '').length + String((c.value && c.value.etag) || '').length) * 2; c.continue(); };
+            rq.onerror = function () { res(n); };
+          } catch (e) { res(n); }
+        });
+      });
+    },
+    clear: function () {
+      cache = {};
+      return idb().then(function (d) {
+        if (!d) return;
+        return new Promise(function (res) {
+          try { var tx = d.transaction('kv', 'readwrite'); tx.objectStore('kv').clear(); tx.oncomplete = tx.onerror = tx.onabort = function () { res(); }; } catch (e) { res(); }
+        });
+      });
+    }
+  };
   function fetchText(path, query, onStale) {
     var key = path + '?' + (query || '');
     if (inflight[key]) return inflight[key];
