@@ -1,7 +1,7 @@
 // ===== MovieBox-style details page with the video playing inline at the top =====
 let currentSeasonKey = null;   // read by broken-link-reporter.js
 let currentEpIndex = -1;
-const PL = { mode: null, hls: null, yt: null, vimeo: null, ytTimer: null, wake: null, fake: false, url: '', playing: false, uiTimer: null, nextTimer: null, resumeAt: 0, upgraded: false, started: false, bright: 1, qs: null, level: null, sel: 'auto', auto: false, srcObj: null, epName: null, switching: false, sessSel: null, autoTimer: 0, stallT: 0, stallAt: 0, stalls: [], noUp: {}, failed: {}, lastSwitch: 0, graceUntil: 0, autoH: 0, autoHMovie: null };
+const PL = { mode: null, hls: null, yt: null, vimeo: null, ytTimer: null, wake: null, fake: false, url: '', playing: false, uiTimer: null, nextTimer: null, resumeAt: 0, upgraded: false, started: false, bright: 1, qs: null, level: null, sel: 'auto', auto: false, srcObj: null, epName: null, switching: false, sessSel: null, autoTimer: 0, stallT: 0, stallAt: 0, stalls: [], noUp: {}, failed: {}, lastSwitch: 0, graceUntil: 0, autoH: 0, autoHMovie: null, ghost: null, lastPos: 0, userPaused: false, loadingNow: false, rt: 0, rtTries: 0 };
 const $id = (i) => document.getElementById(i);
 const fmtT = (s) => { s = Math.max(0, s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = Math.floor(s % 60); return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(x).padStart(2, '0'); };
 // The old single/default video link system is removed: only the 480p / 720p / 1080p links are ever played.
@@ -54,7 +54,38 @@ function linkType(u) {
 }
 // A title that is still upcoming cannot be played (same rule the lists use: mxReleased). Checked live, so it unlocks by itself at the release time.
 const isLocked = (m) => !!m && !mxReleased(m);
-const plToast = (msg) => { const t = $id('pl-toast'); if (!t) return; t.textContent = msg; t.classList.add('on'); clearTimeout(plToast._t); plToast._t = setTimeout(() => t.classList.remove('on'), 2200); };
+// ---------- player messages: ONE slot, so two messages can never overlap ----------
+// priority: hold (2x speed, while the finger is down) > note (short message) > busy (long task, e.g. quality loading in the background)
+//  - the same note is never shown twice in a row (also not if it is repeated within 2.5 s)
+//  - a note on screen stays at least 0.9 s; if more arrive meanwhile only the newest one waits its turn
+//  - a busy message stays under the notes and comes back when they are gone
+const PLM = { hold: '', busy: '', note: '', q: [], t: 0, since: 0, lastText: '', lastAt: 0 };
+const plMsgPaint = () => {
+    const el = $id('pl-toast'); if (!el) return;
+    const text = PLM.hold || PLM.note || PLM.busy;
+    if (!text) { el.classList.remove('on', 'busy'); return; }
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.add('on'); el.classList.toggle('busy', !PLM.hold && !PLM.note);
+};
+const plMsgNext = () => {
+    clearTimeout(PLM.t); PLM.t = 0; const n = PLM.q.shift(); PLM.note = '';
+    if (n) return plMsgShow(n.text, n.ms);
+    plMsgPaint();
+};
+const plMsgShow = (text, ms) => { PLM.note = text; PLM.lastText = text; PLM.lastAt = PLM.since = Date.now(); clearTimeout(PLM.t); PLM.t = setTimeout(plMsgNext, ms); plMsgPaint(); };
+const plToast = (msg, ms) => {
+    if (!msg) return; ms = ms || 2000;
+    if (PLM.note === msg || (PLM.q.length && PLM.q[PLM.q.length - 1].text === msg)) return;       // already showing / already waiting
+    if (msg === PLM.lastText && Date.now() - PLM.lastAt < 2500) return;                            // just shown
+    if (!PLM.note) return plMsgShow(msg, ms);
+    PLM.q = [{ text: msg, ms }];                                                                   // only the newest waiting message is kept
+    clearTimeout(PLM.t); PLM.t = setTimeout(plMsgNext, Math.max(0, 900 - (Date.now() - PLM.since)));
+};
+const plBusy = (msg) => { msg = msg || ''; if (PLM.busy === msg) return; PLM.busy = msg; plMsgPaint(); };
+const plFast = (on) => { PLM.hold = on ? '▶▶ 2x speed' : ''; plMsgPaint(); };
+const plMsgReset = () => { clearTimeout(PLM.t); PLM.t = 0; PLM.hold = PLM.busy = PLM.note = ''; PLM.q = []; PLM.lastText = ''; PLM.lastAt = 0; plMsgPaint(); };
+const plSetRate = (r) => { try { if (PL.mode === 'yt' && PL.yt) PL.yt.setPlaybackRate(r); else if (PL.mode === 'vimeo' && PL.vimeo) PL.vimeo.setPlaybackRate(r); else if (vid()) vid().playbackRate = r; } catch (e) {} };
+const plFastEnd = () => { if (!PL._lp) return; PL._lp = false; plFast(false); plSetRate(plSpeed()); plResync(); };
 
 // ---------- sheets (More Info / Share / All episodes) ----------
 window.closeSheet = () => { const s = $id('mv-sheet'); if (s) s.remove(); mxScrollLock(false); };
@@ -136,7 +167,6 @@ window.showMovieDetails = (movieId, push = true, opts) => {
             <button onclick="plPrevEp()" id="pl-prev" class="ep-only" aria-label="Previous episode"><i class="fas fa-step-backward"></i></button>
             <button onclick="plNextEp()" id="pl-next" class="ep-only" aria-label="Next episode"><i class="fas fa-step-forward"></i></button>
             <button onclick="plMute()" aria-label="Mute"><i id="pl-vol-i" class="fas fa-volume-up"></i></button>
-            <input type="range" id="pl-vol" class="pl-vol" min="0" max="1" step="0.05" value="1">
             <span class="grow"></span>
             <button onclick="plEpsBtn()" class="ep-only pl-fs-only" aria-label="Episodes"><i class="fas fa-list"></i></button>
             <button onclick="plMenu('speed')" id="pl-speed-b" aria-label="Speed"><i class="fas fa-tachometer-alt"></i></button>
@@ -145,6 +175,7 @@ window.showMovieDetails = (movieId, push = true, opts) => {
             <button onclick="plFs()" aria-label="Fullscreen"><i id="pl-fs-i" class="fas fa-expand"></i></button>
           </div>
         </div>
+        <div class="pl-eps" id="pl-eps"><div class="pl-eps-bg" onclick="plEpsClose()"></div><div class="pl-eps-box"><div class="pl-eps-h"><b>Episodes</b><button onclick="plEpsClose()" aria-label="Close"><i class="fas fa-times"></i></button></div><div id="pl-eps-sel"></div><div class="pl-eps-list" id="pl-eps-list"></div></div></div>
         <div class="pl-pop" id="pl-pop"></div>
         <div class="pl-toast" id="pl-toast"></div>
       </div></div>
@@ -205,7 +236,19 @@ window.openAllEps = () => {
     openSheet('Episodes', `${keys.length > 1 ? `<select class="mv-sheet-sel" onchange="selectSeason(this.value);document.getElementById('mv-sheet-grid').innerHTML=window.__epGrid()">${keys.map(k => `<option ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}<div class="mv-sheet-grid" id="mv-sheet-grid">${grid()}</div>`);
     window.__epGrid = grid;
 };
-window.plEpsBtn = () => { if (plIsFs()) plFs(); openAllEps(); };
+// Episode list that opens INSIDE the player, so fullscreen stays on.
+let plEpSeason = null;
+const plEpsRender = () => {
+    const m = allMovies[currentMovieId], box = $id('pl-eps-list'), sel = $id('pl-eps-sel'); if (!m || !box || !m.seasons) return;
+    const keys = Object.keys(m.seasons); if (plEpSeason == null || !m.seasons[plEpSeason]) plEpSeason = currentSeasonKey;
+    sel.innerHTML = keys.length > 1 ? `<select onchange="plEpsSeason(this.value)">${keys.map(k => `<option value="${esc(k)}" ${k === plEpSeason ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : '';
+    box.innerHTML = (m.seasons[plEpSeason] || []).map((e, i) => `<button type="button" class="${plEpSeason === currentSeasonKey && i === currentEpIndex ? 'on' : ''}" onclick="plEpsPlay(${i})"><span>${String(i + 1).padStart(2, '0')}</span><em>${esc(e.name || 'Episode ' + (i + 1))}</em></button>`).join('');
+    const on = box.querySelector('.on'); if (on) box.scrollTop = Math.max(0, on.offsetTop - box.clientHeight / 2 + on.offsetHeight / 2);
+};
+window.plEpsSeason = (k) => { plEpSeason = k; plEpsRender(); };
+window.plEpsPlay = (i) => { if (plEpSeason && plEpSeason !== currentSeasonKey) currentSeasonKey = plEpSeason; plEpsClose(); playEpisode(i); };
+window.plEpsBtn = () => { const p = $id('pl-eps'); if (!p) return; plEpSeason = currentSeasonKey; const pop = $id('pl-pop'); if (pop) pop.classList.remove('on'); p.classList.add('on'); plEpsRender(); plShowUI(true); };
+window.plEpsClose = () => { const p = $id('pl-eps'); if (p) p.classList.remove('on'); if (PL.playing) plShowUI(); };
 window.playEpisode = (i) => {
     const movie = allMovies[currentMovieId]; if (isLocked(movie)) return plToast('Coming soon'); const eps = movie.seasons && movie.seasons[currentSeasonKey]; if (!eps || !eps[i]) return;
     currentEpIndex = i; PL.resumeAt = 0;
@@ -251,8 +294,9 @@ window.reportTitle = () => {
 const vid = () => $id('pl-video');
 const plCur = () => PL.mode === 'yt' && PL.yt && PL.yt.getCurrentTime ? PL.yt.getCurrentTime() : PL.mode === 'vimeo' ? (PL._vt || 0) : (vid() ? vid().currentTime : 0);
 const plDurV = () => PL.mode === 'yt' && PL.yt && PL.yt.getDuration ? PL.yt.getDuration() : PL.mode === 'vimeo' ? (PL._vd || 0) : (vid() ? vid().duration : 0);
-const setPlaying = (p) => { PL.playing = p; const i = $id('pl-pp-i'); if (i) i.className = p ? 'fas fa-pause' : 'fas fa-play'; const pl = $id('pl'); if (pl) pl.classList.toggle('playing', p); if (p) { plShowUI(); wakeOn(); } else { wakeOff(); plShowUI(true); } };
-const spin = (on) => { const s = $id('pl-spin'); if (s) s.style.display = on ? 'block' : 'none'; const pl = $id('pl'); if (pl) pl.classList.toggle('loading', !!on); };
+const plIcon = () => { const i = $id('pl-pp-i'); if (i) i.className = (PL.playing || (PL.loadingNow && PL.started && !PL.userPaused)) ? 'fas fa-pause' : 'fas fa-play'; };
+const setPlaying = (p) => { PL.playing = p; plIcon(); const pl = $id('pl'); if (pl) pl.classList.toggle('playing', p); if (p) { plShowUI(); wakeOn(); } else { wakeOff(); plShowUI(true); } };
+const spin = (on) => { PL.loadingNow = !!on; const s = $id('pl-spin'); if (s) s.style.display = on ? 'block' : 'none'; const pl = $id('pl'); if (pl) pl.classList.toggle('loading', !!on); plIcon(); };
 const wakeOn = async () => { try { if (navigator.wakeLock && !PL.wake) { PL.wake = await navigator.wakeLock.request('screen'); PL.wake.addEventListener('release', () => PL.wake = null); } } catch (e) {} };
 const wakeOff = () => { try { if (PL.wake) PL.wake.release(); } catch (e) {} PL.wake = null; };
 
@@ -267,13 +311,13 @@ const plLoad = (arg, epName, opts) => {
     const srcObj = (arg && typeof arg === 'object') ? arg : {};
     let url;
     if (opts.url) url = opts.url;   // quality switch: the link is already chosen
-    else { const pk = plChoose(srcObj); url = pk.url; PL.level = pk.key; PL.failed = {}; PL.noUp = {}; PL.stalls = []; }
+    else { const pk = plChoose(srcObj); url = pk.url; PL.level = pk.key; PL.failed = {}; PL.noUp = {}; PL.stalls = []; PL.userPaused = false; PL.lastPos = PL.resumeAt || 0; }
     if (!url) { plShowErr('Video link is not available right now.'); return; }
-    PL.srcObj = srcObj; PL.epName = epName;
+    PL.srcObj = srcObj; PL.epName = epName; PL.rt = PL.resumeAt > 1 ? PL.resumeAt : 0; PL.rtTries = 0;
     plTeardown(); $id('pl-err').classList.remove('on'); plCancelNext();
     PL.switching = !!opts.switching; PL.lastSwitch = Date.now(); PL.graceUntil = Date.now() + 8000; PL.stallAt = 0;
-    const qb = $id('pl-q-b'); if (qb) qb.classList.toggle('hidden', !(PL.qs && PL.qs.length > 1));
-    const pl = $id('pl'); pl.classList.add('started'); PL.started = true; PL.upgraded = false;
+    const qb = $id('pl-q-b'); if (qb) qb.classList.toggle('hidden', !(PL.qs && PL.qs.length >= 1));
+    const pl = $id('pl'); pl.classList.add('started'); PL.started = true; PL.upgraded = false; plShowUI(true);
     $id('pl-title').textContent = epName ? allMovies[currentMovieId].title + ' · ' + epName : allMovies[currentMovieId].title;
     const mode = linkType(url); PL.url = url;
     pl.classList.toggle('is-embed', mode === 'iframe');
@@ -306,17 +350,42 @@ const plLoad = (arg, epName, opts) => {
     if (mode === 'hls' && !v.canPlayType('application/vnd.apple.mpegurl')) {
         if (window.Hls && Hls.isSupported()) {
             PL.hls = new Hls({ maxBufferLength: 40, startPosition: PL.resumeAt > 0 ? PL.resumeAt : -1 }); PL.hls.loadSource(url); PL.hls.attachMedia(v);
-            PL.hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!PL.qs && PL.hls.levels.length > 1) $id('pl-q-b').classList.remove('hidden'); if (!opts.keepPaused) v.play().catch(() => setPlaying(false)); });
+            PL.hls.on(Hls.Events.MANIFEST_PARSED, () => { if (!PL.qs && PL.hls.levels.length > 1) $id('pl-q-b').classList.remove('hidden'); if (!opts.keepPaused && !PL.userPaused) v.play().catch(() => setPlaying(false)); });
             PL.hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) plFail('hls', url); });
         } else return plFail('hls', url);
-    } else { v.src = url; v.load(); if (!opts.keepPaused) v.play().catch(() => setPlaying(false)); }
+    } else { v.src = url; v.load(); if (!opts.keepPaused && !PL.userPaused) v.play().catch(() => setPlaying(false)); }
     if ('pictureInPictureEnabled' in document || v.webkitSetPresentationMode) $id('pl-pip-b').classList.remove('hidden');
-    v.playbackRate = plSpeed(); v.volume = parseFloat(localStorage.getItem('pl_vol') || '1'); $id('pl-vol').value = v.volume;
+    v.playbackRate = plSpeed(); v.volume = parseFloat(localStorage.getItem('pl_vol') || '1');
     plAutoStart(); if (!opts.keepPaused) plWatchStart();
 };
+// Some browsers ignore the first seek made right after the metadata loads: check once more when the video can play, so it never restarts from 0:00.
+const plFixResume = (v) => {
+    if (!PL.rt) return;
+    if (v.currentTime > PL.rt - 3) { PL.rt = 0; return; }
+    if (PL.rtTries++ < 2 && v.seekable && v.seekable.length) { try { v.currentTime = PL.rt; } catch (e) {} } else PL.rt = 0;
+};
+// Picture and sound can drift apart (mostly after the 2x hold). A seek to the same second makes the browser line them up again.
+const plResync = () => { const v = vid(); if (!v || PL.mode === 'yt' || PL.mode === 'vimeo' || PL.mode === 'iframe' || v.paused || v.seeking || bufAhead(v) < 2) return; try { v.currentTime = v.currentTime; } catch (e) {} };
+// Watches the shown frame against the playback clock; if they stay apart for a while it re-aligns them by itself.
+const plDriftWatch = (v) => {
+    if (!v || typeof v.requestVideoFrameCallback !== 'function' || v._dw) return; v._dw = true;
+    let bad = 0, lastFix = 0;
+    const cb = (now, md) => {
+        if (vid() !== v) return;   // this element was replaced
+        try {
+            if (!v.paused && !v.seeking && v.readyState >= 3 && PL.playing && md && typeof md.mediaTime === 'number') {
+                bad = Math.abs(v.currentTime - md.mediaTime) > 0.45 ? bad + 1 : 0;
+                if (bad >= 8 && Date.now() - lastFix > 6000) { bad = 0; lastFix = Date.now(); plResync(); }
+            } else bad = 0;
+        } catch (e) {}
+        v.requestVideoFrameCallback(cb);
+    };
+    v.requestVideoFrameCallback(cb);
+};
 const bindVideo = (v) => {
-    v.onloadedmetadata = () => { if (PL.resumeAt && PL.resumeAt < v.duration - (PL.switching ? 1 : 5)) v.currentTime = PL.resumeAt; PL.resumeAt = 0; PL.switching = false; };
-    v.onwaiting = () => { spin(true); plStallStart(v); }; v.oncanplay = () => spin(false); v.onplaying = () => { spin(false); setPlaying(true); plStallEnd(); }; v.onseeking = () => { PL.graceUntil = Date.now() + 4000; };
+    plDriftWatch(v);
+    v.onloadedmetadata = () => { if (PL.resumeAt && PL.resumeAt < v.duration - (PL.switching ? 1 : 5)) v.currentTime = PL.resumeAt; else PL.rt = 0; PL.resumeAt = 0; PL.switching = false; };
+    v.onwaiting = () => { spin(true); plStallStart(v); }; v.oncanplay = () => { spin(false); plFixResume(v); }; v.onseeked = () => plFixResume(v); v.onplaying = () => { spin(false); setPlaying(true); plStallEnd(); }; v.onseeking = () => { PL.graceUntil = Date.now() + 4000; };
     v.onpause = () => { setPlaying(false); plSave(true); }; v.onended = plEnded;
     v.ontimeupdate = plTick; v.onprogress = plBuf;
     v.onerror = () => { if (!v.getAttribute('src') || (v.error && v.error.code === 1)) return; plFail(PL.mode, PL.url); };
@@ -336,7 +405,7 @@ const plFail = (type, url) => {
 const plShowErr = (t) => { const e = $id('pl-err'); if (!e) return; $id('pl-err-t').textContent = t; e.classList.add('on'); };
 window.plRetry = () => { $id('pl-err').classList.remove('on'); const m = allMovies[currentMovieId]; if (m.contentType === 'series') { const e = epList()[currentEpIndex]; plLoad(e, e.name); } else plLoad(m, null); };
 const plTick = () => {
-    const c = plCur(), d = plDurV(); if (!(d > 0)) return; PL.dur = d;
+    const c = plCur(), d = plDurV(); if (!(d > 0)) return; PL.dur = d; if (c > 0.5 && !PL.switching) PL.lastPos = c;
     if (!$id('pl-seek').dataset.drag) { $id('pl-seek').max = d; $id('pl-seek').value = c; $id('pl-fill').style.width = (c / d * 100) + '%'; $id('pl-cur').textContent = fmtT(c); }
     $id('pl-dur').textContent = fmtT(d);
     plSave(false);
@@ -352,7 +421,7 @@ const plEnded = () => {
 };
 window.plCancelNext = () => { clearInterval(PL.nextTimer); const c = $id('pl-nextcard'); if (c) c.classList.remove('on'); };
 const plTeardown = () => {
-    clearInterval(PL.autoTimer); clearTimeout(PL.stallT); clearTimeout(PL.wdT); PL.autoTimer = 0; PL.stallT = 0;
+    plGhostCancel(); PL._lp = false; plFast(false); clearInterval(PL.autoTimer); clearTimeout(PL.stallT); clearTimeout(PL.wdT); PL.autoTimer = 0; PL.stallT = 0;
     clearInterval(PL.ytTimer); try { if (PL.yt && PL.yt.destroy) PL.yt.destroy(); } catch (e) {} PL.yt = null;
     try { if (PL.vimeo && PL.vimeo.destroy) PL.vimeo.destroy(); } catch (e) {} PL.vimeo = null;
     if (PL.hls) { PL.hls.destroy(); PL.hls = null; }
@@ -369,12 +438,17 @@ window.stopPlayer = (force) => {
 };
 
 // ---------- controls ----------
+const PL_SWIPE_VB = false;   // swipe volume/brightness only changed the video's own level (not the phone's real one): off. The phone's own buttons / the browser's gestures control the real volume and brightness.
 const plSpeed = () => parseFloat(localStorage.getItem('pl_speed') || '1');
 window.plToggle = () => {
     if (!PL.started) return startPlayback();
     if (PL.mode === 'yt' && PL.yt) return PL.yt.getPlayerState() === 1 ? PL.yt.pauseVideo() : PL.yt.playVideo();
     if (PL.mode === 'vimeo' && PL.vimeo) return PL.playing ? PL.vimeo.pause() : PL.vimeo.play();
-    const v = vid(); if (v.paused) v.play().catch(() => {}); else v.pause();
+    const v = vid(); if (!v) return;
+    // "playing" also means: started and still loading/buffering. Pause must work at that moment too.
+    const going = PL.playing || (PL.loadingNow && !PL.userPaused);
+    if (going) { PL.userPaused = true; v.pause(); spin(false); setPlaying(false); }
+    else { PL.userPaused = false; v.play().catch(() => {}); if (v.readyState < 3) spin(true); plIcon(); }
 };
 window.plSkip = (d) => {
     const t = Math.max(0, Math.min((plDurV() || 1e9), plCur() + d));
@@ -389,7 +463,8 @@ window.plMenu = (kind) => {
     if (kind === 'speed') items = [0.5, 0.75, 1, 1.25, 1.5, 2].map(s => `<button class="${s === plSpeed() ? 'on' : ''}" onclick="plSetSpeed(${s})">${s === 1 ? 'Normal' : s + 'x'}</button>`);
     else if (PL.qs) {
         const nums = PL.qs.filter(x => x.h).sort((a, b) => b.h - a.h), def = PL.qs.find(x => !x.h);
-        items = [`<button class="${PL.auto ? 'on' : ''}" onclick="plPickQ('auto')">Auto${PL.auto && PL.level && PL.level !== 'default' ? ' <small>(' + PL.level + 'p)</small>' : ''}</button>`]
+        if (nums.length === 1 && !def) items = [`<button class="on" onclick="document.getElementById('pl-pop').classList.remove('on')">${nums[0].h}p</button>`];   // only one link: just show which quality is playing
+        else items = [`<button class="${PL.auto ? 'on' : ''}" onclick="plPickQ('auto')">Auto${PL.auto && PL.level && PL.level !== 'default' ? ' <small>(' + PL.level + 'p)</small>' : ''}</button>`]
             .concat(nums.map(x => `<button class="${!PL.auto && PL.level === x.key ? 'on' : ''}" onclick="plPickQ('${x.key}')">${x.h}p</button>`));
         if (def) items.push(`<button class="${!PL.auto && PL.level === 'default' ? 'on' : ''}" onclick="plPickQ('default')">Default</button>`);
     }
@@ -398,29 +473,119 @@ window.plMenu = (kind) => {
 };
 window.plSetSpeed = (s) => { localStorage.setItem('pl_speed', s); if (PL.mode === 'yt' && PL.yt) PL.yt.setPlaybackRate(s); else if (PL.mode === 'vimeo' && PL.vimeo) PL.vimeo.setPlaybackRate(s); else if (vid()) vid().playbackRate = s; $id('pl-pop').classList.remove('on'); };
 window.plSetQ = (i) => { if (PL.hls) PL.hls.currentLevel = i; $id('pl-pop').classList.remove('on'); };
+// ---------- seamless quality switch ----------
+// The new quality loads in a hidden second <video> while the current one keeps playing. When it has buffered at the exact second the
+// viewer is at, the two are swapped: no frozen picture while loading and no restart from the beginning.
+const plGhostCancel = () => {
+    const G = PL.ghost; if (!G) return; PL.ghost = null; plBusy('');
+    clearTimeout(G.timer); clearInterval(G.iv);
+    try { if (G.hls) G.hls.destroy(); } catch (e) {}
+    try { G.g.pause(); G.g.removeAttribute('src'); G.g.load(); G.g.remove(); } catch (e) {}
+};
+// The wanted quality could not load. Keep the picture the viewer already has; if there is a quality in between, try that one.
+const plGhostFailed = (G) => {
+    PL.failed[G.key] = 1; PL.noUp[G.h] = Date.now() + 180000;
+    const cur = +PL.level || 0, want = G.h;
+    const mid = (PL.qs || []).filter(x => x.h && !PL.failed[x.key] && (want > cur ? (x.h > cur && x.h < want) : (x.h < cur && x.h > want))).sort((a, b) => want > cur ? b.h - a.h : a.h - b.h)[0];
+    if (mid) { plSwitch(mid.key, Object.assign({}, G.o, { busy: want + 'p could not load · trying ' + mid.h + 'p…' })); return; }
+    if (G.o.onFail) G.o.onFail();
+    plToast(want + 'p could not load, staying on ' + (cur ? cur + 'p' : 'current quality'));
+};
+const plGhostSwitch = (it, o) => {
+    const old = vid(), pl = $id('pl');
+    if (!old || !pl || !PL.started || !(PL.mode === 'direct' || PL.mode === 'hls') || document.pictureInPictureElement === old) return false;
+    let url = it.url; const mode = linkType(url);
+    if (mode !== 'direct' && mode !== 'hls') return false;
+    if (url.includes('dropbox.com')) url = url.replace('dl=0', 'raw=1');
+    let upgraded = false; if (location.protocol === 'https:' && url.startsWith('http://')) { url = 'https://' + url.slice(7); upgraded = true; }
+    plGhostCancel();
+    const cur = plCur(), target = cur > 1 ? cur : (PL.lastPos || 0);
+    const g = document.createElement('video');
+    g.setAttribute('playsinline', ''); g.setAttribute('webkit-playsinline', ''); g.playsInline = true; g.preload = 'auto'; g.muted = true;
+    g.style.cssText = 'position:absolute;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';
+    const G = { g, hls: null, key: it.key, h: it.h, url, mode, o, stage: 0, tries: 0, upgraded, timer: 0, iv: 0 };
+    PL.ghost = G;
+    const live = () => PL.ghost === G;
+    const fail = () => { if (!live()) return; plGhostCancel(); plGhostFailed(G); };
+    const swap = () => {
+        if (!live()) return; PL.ghost = null; clearTimeout(G.timer); clearInterval(G.iv);
+        const o2 = vid(); if (!o2) { try { g.remove(); } catch (e) {} return; }
+        g.removeAttribute('style'); g.style.cssText = o2.style.cssText; g.id = 'pl-video'; o2.id = '';
+        g.muted = o2.muted; try { g.volume = o2.volume; } catch (e) {} g.playbackRate = PL._lp ? 2 : plSpeed();
+        o2.parentNode.insertBefore(g, o2);
+        ['onerror', 'onpause', 'onwaiting', 'onplaying', 'oncanplay', 'onended', 'ontimeupdate', 'onprogress', 'onseeking', 'onseeked', 'onloadedmetadata'].forEach(k => { o2[k] = null; });
+        try { o2.pause(); o2.removeAttribute('src'); o2.load(); } catch (e) {}
+        o2.remove();
+        try { if (PL.hls) PL.hls.destroy(); } catch (e) {} PL.hls = G.hls;
+        PL.level = G.key; PL.url = G.url; PL.mode = G.mode; PL.upgraded = G.upgraded; PL.switching = false; PL.rt = 0;
+        PL.lastSwitch = Date.now(); PL.graceUntil = Date.now() + 6000; PL.stallAt = 0; clearTimeout(PL.stallT); PL.stallT = 0;
+        bindVideo(g); plBuf();
+        if (!PL.userPaused) g.play().catch(() => {}); else setPlaying(false);
+        spin(false); plBusy(''); plToast((PL.auto ? 'Auto: now ' : 'Quality changed to ') + G.h + 'p');
+        plAutoStart();
+    };
+    const step = () => {
+        if (!live()) return;
+        if (G.stage === 1) {
+            const left = (g.duration || 0) - g.currentTime;
+            if (g.readyState >= 3 && g.currentTime >= target - 1 && (bufAhead(g) >= 5 || left < 6)) {
+                G.stage = 2; try { g.pause(); } catch (e) {}
+            }
+        }
+        if (G.stage === 2) {
+            if (g.seeking || g.readyState < 3) return;
+            const now = old.currentTime;
+            if (Math.abs(g.currentTime - now) <= 0.6 || G.tries >= 6) return swap();
+            G.tries++; try { g.currentTime = now + (old.paused ? 0 : 0.5); } catch (e) {}
+        }
+    };
+    const start = () => {
+        if (!live() || G.stage !== 0) return; G.stage = 1;
+        if (!G.hls && target > 1) { try { g.currentTime = target; } catch (e) {} }
+        g.play().catch(() => {});
+    };
+    g.addEventListener('loadedmetadata', start);
+    ['canplay', 'progress', 'seeked', 'playing', 'timeupdate'].forEach(ev => g.addEventListener(ev, step));
+    g.addEventListener('error', fail);
+    G.iv = setInterval(step, 400);
+    G.timer = setTimeout(fail, 25000);   // never waits forever
+    pl.appendChild(g);
+    if (mode === 'hls' && !g.canPlayType('application/vnd.apple.mpegurl')) {
+        if (window.Hls && Hls.isSupported()) {
+            G.hls = new Hls({ maxBufferLength: 40, startPosition: target > 1 ? target : -1 });
+            G.hls.loadSource(url); G.hls.attachMedia(g);
+            G.hls.on(Hls.Events.ERROR, (_, d) => { if (d.fatal) fail(); });
+        } else { plGhostCancel(); return false; }
+    } else { g.src = url; g.load(); }
+    plBusy(o.busy || ('Changing to ' + it.h + 'p in background…'));
+    return true;
+};
 // Switch to another quality link and carry on from the exact second the viewer reached (play/pause state is kept too).
 const plSwitch = (key, o) => {
     o = o || {};
     if (!PL.qs || !PL.srcObj) return;
     const it = PL.qs.find(x => x.key === key); if (!it || (key === PL.level && !o.force)) return;
-    const t = PL.mode === 'iframe' ? 0 : plCur(), wasPlaying = PL.playing;
-    if (!o.force) plSave(true);                       // remember the position first
-    PL.resumeAt = t > 1 ? t : 0; PL.level = key;
     if (o.fallback) { PL.sessSel = { movie: currentMovieId, key: 'auto' }; PL.sel = 'auto'; PL.auto = true; }   // chosen quality could not load: carry on in Auto for this title only (saved default stays)
-    plLoad(PL.srcObj, PL.epName, { switching: true, url: it.url, keepPaused: !wasPlaying && !o.force });
+    if (!o.force && plGhostSwitch(it, o)) return true;            // current video keeps playing while the new quality loads
+    const cur = plCur(), t = PL.mode === 'iframe' ? 0 : (cur > 1 ? cur : (PL.lastPos || 0));   // never fall back to 0:00 when the new link was not loaded yet
+    if (!o.force) plSave(true);                                   // remember the position first
+    PL.resumeAt = t > 1 ? t : 0; PL.level = key;
+    plLoad(PL.srcObj, PL.epName, { switching: true, url: it.url, keepPaused: !o.force && PL.userPaused });
+    return false;
 };
 // the viewer picked a quality in the player: valid for this title until they leave it; the saved default is never changed here
 window.plPickQ = (key) => {
     $id('pl-pop').classList.remove('on');
     if (!PL.qs) return;
+    const prev = { sel: PL.sel, auto: PL.auto, ss: PL.sessSel };
+    const opts = { onFail: () => { PL.sel = prev.sel; PL.auto = prev.auto; PL.sessSel = prev.ss; } };
     PL.sessSel = { movie: currentMovieId, key }; PL.sel = key; PL.auto = key === 'auto';
     if (key === 'auto') {
         PL.noUp = {};
         const hs = PL.qs.filter(x => x.h).map(x => x.h);
-        if (!PL.level || PL.level === 'default') plSwitch(String(nearestQ(hs, netStartQ())));
-        else plAutoStart();
-        plToast('Auto quality');
-    } else { plSwitch(key); plAutoStart(); }
+        const started = (!PL.level || PL.level === 'default') ? plSwitch(String(nearestQ(hs, netStartQ())), opts) : (plAutoStart(), false);
+        if (!started) plToast('Auto quality');
+    } else { plSwitch(key, opts); plAutoStart(); }
 };
 // ----- Auto: start from the network speed, step down when it keeps buffering, step up slowly when it is smooth -----
 const plAutoLevels = () => (PL.qs || []).filter(x => x.h).map(x => x.h).sort((a, b) => a - b);
@@ -436,18 +601,18 @@ const plStallEnd = () => {
     if (PL.stalls.length >= 2) { PL.stalls = []; plAutoDown(); }                   // repeated short stalls
 };
 const plAutoDown = () => {
-    if (!PL.qs || PL.switching || Date.now() < PL.graceUntil) return;
+    if (!PL.qs || PL.switching || PL.ghost || Date.now() < PL.graceUntil) return;
     const cur = +PL.level, lower = plAutoLevels().filter(h => h < cur); if (!lower.length) return;
     if (!PL.auto) { PL.sessSel = { movie: currentMovieId, key: 'auto' }; PL.sel = 'auto'; PL.auto = true; }   // fixed quality keeps freezing: continue in Auto for this title (saved default untouched)
     const nh = lower[lower.length - 1]; PL.noUp[cur] = Date.now() + 180000; PL.autoH = nh; PL.autoHMovie = currentMovieId;
-    plToast('Slow connection: switching to ' + nh + 'p'); plSwitch(String(nh));
+    plSwitch(String(nh), { busy: 'Slow connection · changing to ' + nh + 'p in background…' });
 };
 const plAutoTick = () => {
-    const v = vid(); if (!PL.auto || !PL.qs || !v || PL.switching || !PL.playing || v.seeking || v.paused) return;
+    const v = vid(); if (!PL.auto || !PL.qs || !v || PL.switching || PL.ghost || !PL.playing || v.seeking || v.paused) return;
     const now = Date.now(); if (now < PL.graceUntil || now - PL.lastSwitch < 60000 || bufAhead(v) < 20) return;
-    const cur = +PL.level, up = plAutoLevels().filter(h => h > cur)[0]; if (!up || (PL.noUp[up] || 0) > now) return;
+    const cur = +PL.level, up = plAutoLevels().filter(h => h > cur)[0]; if (!up || PL.failed[String(up)] || (PL.noUp[up] || 0) > now) return;
     const c = netConn(); if (c && typeof c.downlink === 'number' && c.downlink > 0 && c.downlink < (up >= 1080 ? 5 : 2.5)) return;
-    PL.autoH = up; PL.autoHMovie = currentMovieId; plToast('Switching to ' + up + 'p'); plSwitch(String(up));
+    PL.autoH = up; PL.autoHMovie = currentMovieId; plSwitch(String(up), { busy: 'Better connection · changing to ' + up + 'p in background…' });
 };
 // Watchdog: the chosen quality never started (stuck on the spinner) or keeps freezing -> do not stay stuck, drop to a lower quality and carry on in Auto.
 const plWatchStart = () => {
@@ -481,26 +646,34 @@ const plExitFs = (silent) => {
 ['fullscreenchange', 'webkitfullscreenchange'].forEach(e => document.addEventListener(e, () => { const el = $id('pl'); if (el && !document.fullscreenElement && !document.webkitFullscreenElement && !PL.fake) { el.classList.remove('is-fs'); const i = $id('pl-fs-i'); if (i) i.className = 'fas fa-expand'; try { screen.orientation.unlock(); } catch (x) {} } }));
 function plShowUI(keep) {
     const pl = $id('pl'); if (!pl) return; pl.classList.add('ui'); clearTimeout(PL.uiTimer);
-    if (!keep && PL.playing) PL.uiTimer = setTimeout(() => { pl.classList.remove('ui'); const p = $id('pl-pop'); if (p) p.classList.remove('on'); }, 3200);
+    if (!keep && PL.playing) PL.uiTimer = setTimeout(() => { const p = $id('pl-pop'); if (p && p.classList.contains('on')) return; const e = $id('pl-eps'); if (e && e.classList.contains('on')) return; pl.classList.remove('ui'); }, 3200);
 }
 // gestures + input
 function plBind() {
-    const pl = $id('pl'), touch = $id('pl-touch'), seek = $id('pl-seek'), vol = $id('pl-vol'); if (!pl) return;
+    plMsgReset();
+    const pl = $id('pl'), touch = $id('pl-touch'), seek = $id('pl-seek'); if (!pl) return;
     seek.addEventListener('input', () => { seek.dataset.drag = '1'; $id('pl-cur').textContent = fmtT(seek.value); $id('pl-fill').style.width = (seek.value / (seek.max || 1) * 100) + '%'; });
     seek.addEventListener('change', () => { const t = parseFloat(seek.value); if (PL.mode === 'yt' && PL.yt) PL.yt.seekTo(t, true); else if (PL.mode === 'vimeo' && PL.vimeo) PL.vimeo.setCurrentTime(t); else vid().currentTime = t; delete seek.dataset.drag; });
-    vol.addEventListener('input', () => { const v = vid(); v.muted = false; v.volume = vol.value; localStorage.setItem('pl_vol', vol.value); $id('pl-vol-i').className = vol.value == 0 ? 'fas fa-volume-mute' : 'fas fa-volume-up'; });
     pl.addEventListener('mousemove', () => plShowUI());
+    // tap anywhere outside the speed / quality list closes it (and that tap does nothing else)
+    pl.addEventListener('pointerdown', (e) => {
+        const pop = $id('pl-pop'); if (!pop || !pop.classList.contains('on')) return;
+        if (e.target.closest && (e.target.closest('#pl-pop') || e.target.closest('#pl-speed-b') || e.target.closest('#pl-q-b'))) return;
+        pop.classList.remove('on'); PL._swallow = Date.now();
+    }, true);
     // mouse: click toggles play
-    touch.addEventListener('click', (e) => { if (e.pointerType === 'touch' || PL._touched) { PL._touched = false; return; } if (!PL.started) return; plToggle(); });
+    touch.addEventListener('click', (e) => { if (Date.now() - (PL._swallow || 0) < 800) return; if (e.pointerType === 'touch' || PL._touched) { PL._touched = false; return; } if (!PL.started) return; plToggle(); });
     // touch: tap = show/hide, double tap = skip, long press = 2x, vertical swipe = brightness/volume
     let t0 = 0, lastTap = 0, lastSide = '', sx = 0, sy = 0, moved = false, lp = null, base = 0, mode = '';
     touch.addEventListener('touchstart', (e) => { PL._touched = true; const t = e.touches[0]; sx = t.clientX; sy = t.clientY; moved = false; mode = ''; t0 = Date.now(); const r = touch.getBoundingClientRect(); base = (sx - r.left) / r.width;
-        clearTimeout(lp); lp = setTimeout(() => { if (!moved && PL.started && PL.mode !== 'iframe') { PL._lp = true; if (vid()) vid().playbackRate = 2; plToast('2x speed'); } }, 550); }, { passive: true });
+        clearTimeout(lp); lp = setTimeout(() => { if (!moved && PL.started && PL.mode !== 'iframe') { PL._lp = true; plSetRate(2); plFast(true); } }, 550); }, { passive: true });
+    touch.addEventListener('touchcancel', () => { clearTimeout(lp); plFastEnd(); }, { passive: true });
     touch.addEventListener('touchmove', (e) => { const t = e.touches[0], dy = sy - t.clientY, dx = t.clientX - sx; if (Math.abs(dy) > 14 && Math.abs(dy) > Math.abs(dx)) { moved = true; clearTimeout(lp); const v = vid(); if (!v || !PL.started) return;
-        if (base < 0.4) { PL.bright = Math.max(0.3, Math.min(1.6, PL.bright + (dy - (PL._ly || 0)) / 250)); v.style.filter = 'brightness(' + PL.bright + ')'; plToast('Brightness ' + Math.round(PL.bright * 100) + '%'); }
-        else if (base > 0.6) { v.muted = false; v.volume = Math.max(0, Math.min(1, v.volume + (dy - (PL._ly || 0)) / 250)); vol.value = v.volume; plToast('Volume ' + Math.round(v.volume * 100) + '%'); }
+        if (!PL_SWIPE_VB) { /* off */ }
+        else if (base < 0.4) { PL.bright = Math.max(0.3, Math.min(1.6, PL.bright + (dy - (PL._ly || 0)) / 250)); v.style.filter = 'brightness(' + PL.bright + ')'; plToast('Brightness ' + Math.round(PL.bright * 100) + '%'); }
+        else if (base > 0.6) { v.muted = false; v.volume = Math.max(0, Math.min(1, v.volume + (dy - (PL._ly || 0)) / 250)); localStorage.setItem('pl_vol', v.volume); $id('pl-vol-i').className = v.volume == 0 ? 'fas fa-volume-mute' : 'fas fa-volume-up'; plToast('Volume ' + Math.round(v.volume * 100) + '%'); }
         PL._ly = dy; } }, { passive: true });
-    touch.addEventListener('touchend', (e) => { clearTimeout(lp); PL._ly = 0; if (PL._lp) { PL._lp = false; if (vid()) vid().playbackRate = plSpeed(); return; } if (moved) return; if (Date.now() - t0 > 450) return;
+    touch.addEventListener('touchend', (e) => { clearTimeout(lp); PL._ly = 0; if (Date.now() - (PL._swallow || 0) < 800) { plFastEnd(); e.preventDefault(); return; } if (PL._lp) { plFastEnd(); return; } if (moved) return; if (Date.now() - t0 > 450) return;
         const side = base < 0.35 ? 'left' : base > 0.65 ? 'right' : 'mid', now = Date.now();
         if (PL.started && now - lastTap < 320 && side === lastSide && side !== 'mid') { plSkip(side === 'right' ? 10 : -10); lastTap = 0; return; }
         lastTap = now; lastSide = side;
@@ -510,6 +683,7 @@ document.addEventListener('keydown', (e) => {
     if (!PL.started || !$id('movie-details-page') || !$id('movie-details-page').classList.contains('active')) return;
     if (/INPUT|TEXTAREA|SELECT/.test((e.target.tagName || '')) && e.target.type !== 'range') return;
     const k = e.key.toLowerCase();
+    if (k === 'escape' && $id('pl-eps') && $id('pl-eps').classList.contains('on')) { plEpsClose(); return; }
     if (k === ' ' || k === 'k') { e.preventDefault(); plToggle(); } else if (k === 'arrowright') plSkip(10); else if (k === 'arrowleft') plSkip(-10);
     else if (k === 'f') plFs(); else if (k === 'm') plMute(); else if (k === 'arrowup' && vid()) { vid().volume = Math.min(1, vid().volume + .1); } else if (k === 'arrowdown' && vid()) { vid().volume = Math.max(0, vid().volume - .1); }
 });

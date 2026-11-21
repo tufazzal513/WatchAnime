@@ -25,11 +25,12 @@
 .pl-center{position:absolute;z-index:6;top:50%;left:50%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:26px;opacity:0;pointer-events:none;transition:opacity .25s!important}
 .pl.started.ui:not(.is-embed) .pl-center{opacity:1;pointer-events:auto}
 /* while the video is loading/buffering show only the spinner (no play/skip buttons behind it) */
-.pl.loading .pl-center{opacity:0!important;pointer-events:none!important}
+/* pause/play stays reachable while loading: the spinner turns into a ring around the button */
+.pl.loading .pl-center button:not(.pl-pp){opacity:.35}
 .pl-center button{position:relative;width:48px;height:48px;color:#fff;font-size:26px}
 .pl-center button em{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:9px;font-style:normal;font-weight:700;padding-top:2px}
 .pl-center .pl-pp{width:62px;height:62px;border-radius:50%;background:rgba(0,0,0,.5);font-size:26px}
-.pl-spin{display:none;position:absolute;z-index:5;top:50%;left:50%;width:42px;height:42px;margin:-21px 0 0 -21px;border:3px solid rgba(255,255,255,.25);border-top-color:var(--nf);border-radius:50%;animation:plspin .8s linear infinite;pointer-events:none}
+.pl-spin{display:none;position:absolute;z-index:7;top:50%;left:50%;width:76px;height:76px;margin:-38px 0 0 -38px;border:3px solid rgba(255,255,255,.25);border-top-color:var(--nf);border-radius:50%;animation:plspin .8s linear infinite;pointer-events:none}
 @keyframes plspin{to{transform:rotate(360deg)}}
 .pl-err{display:none;position:absolute;inset:0;z-index:9;background:rgba(0,0,0,.88);flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;color:#ddd;font-size:13px}
 .pl-err.on{display:flex}.pl-err i{font-size:30px;color:#facc15}
@@ -53,8 +54,6 @@
 .pl-btnrow{display:flex;align-items:center;gap:4px;color:#fff}
 .pl-btnrow button{width:36px;height:34px;color:#fff;font-size:16px}
 .pl-btnrow .grow{flex:1}
-.pl-vol{width:80px;accent-color:var(--nf)}
-@media(max-width:640px){.pl-vol{display:none}}
 .pl:not(.is-series) .ep-only{display:none}
 .pl:not(.is-fs) .pl-fs-only{display:none}
 .pl.is-embed .pl-bar{opacity:1;pointer-events:none;top:8px;bottom:auto;left:auto;right:8px;padding:0;width:auto}
@@ -66,6 +65,7 @@
 .pl-pop button.on{color:#fff;background:var(--nf)}
 .pl-toast{position:absolute;z-index:9;top:16%;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);color:#fff;font-size:12px;padding:6px 14px;border-radius:999px;opacity:0;pointer-events:none;transition:opacity .2s!important;white-space:nowrap}
 .pl-toast.on{opacity:1}
+.pl-toast.busy::before{content:"";display:inline-block;width:10px;height:10px;margin-right:8px;vertical-align:-1px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:plspin .8s linear infinite}
 .pl:fullscreen,.pl:-webkit-full-screen{aspect-ratio:auto;width:100vw;height:100vh}
 .pl.fake-fs{position:fixed;inset:0;z-index:9999;aspect-ratio:auto;width:100vw;height:100vh;height:100dvh}
 body.pl-lock{overflow:hidden}
@@ -75,6 +75,20 @@ body.sheet-lock{overflow:hidden}
 .pl.is-fs .pl-title{font-size:18px;top:18px;left:64px}
 .pl.is-fs .pl-back{top:12px;left:12px}
 .pl.is-fs .pl-bar{padding:0 24px 18px}
+
+/* episode list inside the player (fullscreen friendly) */
+.pl-eps{display:none;position:absolute;inset:0;z-index:10}
+.pl-eps.on{display:flex;justify-content:flex-end}
+.pl-eps-bg{position:absolute;inset:0;background:rgba(0,0,0,.45)}
+.pl-eps-box{position:relative;width:min(340px,72%);height:100%;background:rgba(18,18,18,.97);display:flex;flex-direction:column;padding:12px 12px 8px;color:#fff;border-left:1px solid #2a2a2a}
+.pl-eps-h{display:flex;align-items:center;justify-content:space-between;font-size:16px;margin-bottom:8px}
+.pl-eps-h button{width:34px;height:34px;color:#fff;font-size:16px}
+#pl-eps-sel select{width:100%;background:#262626;color:#fff;border:1px solid #3a3a3a;border-radius:6px;padding:8px 10px;margin-bottom:8px;font-size:14px}
+.pl-eps-list{position:relative;flex:1;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;display:flex;flex-direction:column;gap:6px;padding-bottom:6px}
+.pl-eps-list button{display:flex;align-items:center;gap:12px;text-align:left;background:#262626;color:#ddd;border-radius:6px;padding:10px 12px;font-size:13px;flex:none}
+.pl-eps-list button span{font-weight:700;min-width:26px}
+.pl-eps-list button em{font-style:normal;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl-eps-list button.on{background:var(--nf);color:#fff}
 
 /* info */
 .mv-info{padding:14px 16px}
