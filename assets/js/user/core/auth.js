@@ -74,7 +74,7 @@ auth.onAuthStateChanged(async (user) => {
         // start loading the data at once; the loader only fades out on top of it
         (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
         const quick = initialLoader.classList.contains('quiet');     // refresh: short, smooth fade
-        initialLoader.style.opacity = '0';
+        initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
         setTimeout(() => { initialLoader.style.display = 'none'; }, quick ? 260 : 500);
 
 
@@ -88,7 +88,7 @@ auth.onAuthStateChanged(async (user) => {
         authScreen.style.display = 'flex';
         setTimeout(() => authScreen.classList.add('visible'), 10);
         appContainer.classList.add('hidden');
-        initialLoader.style.opacity = '0';
+        initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
         setTimeout(() => initialLoader.style.display = 'none', 500);
     }
 });

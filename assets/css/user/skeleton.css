@@ -12,8 +12,9 @@
 .sk-card{border-radius:6px}
 
 /* ---- refresh screen: replaces the blank dark page; drawn by splash-boot.js ---- */
-#initial-loader.quiet{display:block!important;background:var(--bg,#141414)!important;transition:opacity .25s ease-out}
-#initial-loader.quiet>.mx-boot{display:block!important;max-width:90rem;margin:0 auto;height:100%;overflow:hidden}
+/* NOTE: no display rule on the loader itself - the script hides it with style.display='none' and an !important here would keep it on top of the page */
+#initial-loader.quiet{background:var(--bg,#141414)!important;transition:opacity .25s ease-out;pointer-events:none}
+#initial-loader.quiet>.mx-boot{display:block!important;width:100%;max-width:90rem;margin:0 auto;height:100%;overflow:hidden}
 .mx-boot{padding-bottom:70px;animation:mxFade .18s ease-out both}
 @keyframes mxFade{from{opacity:0}to{opacity:1}}
 .mxb-bar{display:flex;align-items:center;gap:10px;height:56px;padding:0 16px}
