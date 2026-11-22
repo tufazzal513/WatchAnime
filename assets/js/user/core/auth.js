@@ -77,7 +77,7 @@ auth.onAuthStateChanged(async (user) => {
         // start loading the data at once. There is no intro splash any more; the page content simply appears when it is ready.
         window.__mxReadyDone = false; window.__mxMoviesOk = false; window.__mxBannersOk = false;
         (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
-        setTimeout(() => window.mxReady(), 8000);                   // never hold the screen forever (slow or offline)
+        setTimeout(() => window.mxReady(), 6000);                   // never hold the screen forever (slow or offline)
 
 
     } else {
@@ -202,7 +202,6 @@ window.mxReady = () => {
     appContainer.classList.remove('mx-wait');      // show the finished page in one go
 };
 window.mxTryReady = () => {
-    const home = document.getElementById('home-page');
-    const needBanners = !!(home && home.classList.contains('active'));
-    if (window.__mxMoviesOk && (window.__mxBannersOk || !needBanners)) window.mxReady();
+    // show the page as soon as the movie list is ready; hero banners fade in by themselves when they arrive
+    if (window.__mxMoviesOk) window.mxReady();
 };

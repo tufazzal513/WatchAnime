@@ -31,6 +31,7 @@ const renderBanners = (banners) => {
     // with 2+ banners the rail has a copy of the last slide in front and of the first at the end, so swiping loops without a visible jump
     const items = n > 1 ? [list[n - 1], ...list, list[0]] : list;
     carouselEl.innerHTML = `<div class="hero-rail">${items.map(slide).join('')}</div><div class="hero-dots">${list.map((_, i) => `<i data-i="${i}" class="${i === 0 ? 'on' : ''}"></i>`).join('')}</div>`;
+    carouselEl.classList.add('mx-has');     // fade the banners in once, when they are first drawn
 
     const rail = carouselEl.querySelector('.hero-rail');
     const dots = carouselEl.querySelectorAll('.hero-dots i');
