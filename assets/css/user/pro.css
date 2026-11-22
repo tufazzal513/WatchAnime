@@ -113,4 +113,6 @@ nav.fixed.bottom-0 .nav-btn.text-blue-500,nav.fixed.bottom-0 .nav-btn.active{col
 .ts-play{width:34px;height:34px;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;margin-right:12px}
 #search-page input{background:#333!important}
 
+#app-container.mx-wait{visibility:hidden}
+
 @media(min-width:768px){.hero{height:min(64vh,540px)}.hero-info{max-height:calc(100% - 150px);overflow:hidden}}

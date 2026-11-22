@@ -1,6 +1,3 @@
-setTimeout(() => window.mxHideShell && window.mxHideShell(), 10000);   // never leave the shell stuck on screen
-window.mxHideShell = () => { document.documentElement.classList.remove('mx-shell-on'); const e = document.getElementById('mx-shell'); if (e) e.remove(); };
-
 // --- AUTH STATE & LOADING ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -50,13 +47,13 @@ auth.onAuthStateChanged(async (user) => {
             }
         });
 
-        try { localStorage.setItem('mx_li', '1'); } catch (e) {}      // next visit: show the app shell instantly
-
         // সবকিছু ঠিক থাকলে অ্যাপে প্রবেশ করানো
         authScreen.classList.remove('visible');
         authScreen.style.display = 'none'; 
+        // The app is laid out but kept invisible until the first data is ready (mxReady). Until then the browser keeps showing
+        // the previous page on a refresh and its own loading bar runs, exactly like a normal website.
+        appContainer.classList.add('mx-wait');
         appContainer.classList.remove('hidden');
-        mxHideShell();
         updateUserProfile(user);
         setupPresence(user);
 
@@ -88,8 +85,6 @@ auth.onAuthStateChanged(async (user) => {
             userStatusRef.off();
             userStatusRef = null;
         }
-        try { localStorage.setItem('mx_li', '0'); } catch (e) {}
-        mxHideShell();
         window.__startupRouteDone = false;      // the next login applies the URL again
         window.mxAuthRoute();
         authScreen.style.display = 'flex';
@@ -204,8 +199,7 @@ window.mxShell = (r) => {
 window.mxReady = () => {
     if (window.__mxReadyDone) return;
     window.__mxReadyDone = true;
-    initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
-    setTimeout(() => { initialLoader.style.display = 'none'; }, 500);
+    appContainer.classList.remove('mx-wait');      // show the finished page in one go
 };
 window.mxTryReady = () => {
     const home = document.getElementById('home-page');
