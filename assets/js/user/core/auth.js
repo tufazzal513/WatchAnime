@@ -1,3 +1,6 @@
+setTimeout(() => window.mxHideShell && window.mxHideShell(), 10000);   // never leave the shell stuck on screen
+window.mxHideShell = () => { document.documentElement.classList.remove('mx-shell-on'); const e = document.getElementById('mx-shell'); if (e) e.remove(); };
+
 // --- AUTH STATE & LOADING ---
 auth.onAuthStateChanged(async (user) => {
     if (user) {
@@ -47,12 +50,13 @@ auth.onAuthStateChanged(async (user) => {
             }
         });
 
-        try { localStorage.setItem('mx_li', '1'); } catch (e) {}      // lets the refresh screen know which skeleton to draw
+        try { localStorage.setItem('mx_li', '1'); } catch (e) {}      // next visit: show the app shell instantly
 
         // সবকিছু ঠিক থাকলে অ্যাপে প্রবেশ করানো
         authScreen.classList.remove('visible');
         authScreen.style.display = 'none'; 
         appContainer.classList.remove('hidden');
+        mxHideShell();
         updateUserProfile(user);
         setupPresence(user);
 
@@ -68,12 +72,12 @@ auth.onAuthStateChanged(async (user) => {
             if (typeof showCustomModal === 'function') showCustomModal('alert', 'Page not found.');
         } else if (route.movieId || route.browse || (route.page === 'search-page' && route.q)) {
             window.__mxPendingRoute = route;
-            mxShell(route);                 // show the right page (with skeleton) right now, not Home, while the data loads
+            mxShell(route);                 // open the right page right now (not Home) while the data loads
         } else {
             showPage(route.page, false);
         }
 
-        // start loading the data at once. The loader (skeleton on a refresh) stays until the page content is ready, then fades away.
+        // start loading the data at once. There is no intro splash any more; the page content simply appears when it is ready.
         window.__mxReadyDone = false; window.__mxMoviesOk = false; window.__mxBannersOk = false;
         (function run() { if (typeof loadInitialData === 'function') loadInitialData(); else setTimeout(run, 40); })();
         setTimeout(() => window.mxReady(), 8000);                   // never hold the screen forever (slow or offline)
@@ -85,6 +89,7 @@ auth.onAuthStateChanged(async (user) => {
             userStatusRef = null;
         }
         try { localStorage.setItem('mx_li', '0'); } catch (e) {}
+        mxHideShell();
         window.__startupRouteDone = false;      // the next login applies the URL again
         window.mxAuthRoute();
         authScreen.style.display = 'flex';
@@ -174,38 +179,33 @@ window.goBack = () => { if (history.state && history.state.d > 0) history.back()
 navBtns.forEach(btn => btn.addEventListener('click', () => showPage(btn.dataset.page)));
 
 
-// Refresh on /movie/..., /genre/..., /browse..., /search?q=...: the data is not here yet, so show THAT page with skeleton blocks
-// (instead of the Home page for a moment). mxApplyRoute() replaces it with the real content once the data arrives.
+// Refresh on /movie/..., /genre/..., /browse..., /search?q=...: the data is not here yet, so open THAT page (empty, no skeleton)
+// instead of the Home page for a moment. mxApplyRoute() fills it with the real content once the data arrives.
 window.mxShell = (r) => {
     if (!r) return;
     const url = location.pathname + location.search, el = (id) => document.getElementById(id);
-    const cards = (n) => Array.from({ length: n }, () => '<div class="mxs-card"><div class="skeleton mxs-poster"></div><div class="skeleton mxs-line" style="width:72%"></div></div>').join('');
     if (r.movieId) {
         showPage('movie-details-page', false, url);
-        el('movie-details-content').innerHTML = '<div class="mxs-movie"><div class="skeleton mxs-player"></div><div class="mxs-body">'
-            + '<div class="skeleton mxs-line" style="width:62%;height:26px"></div><div class="skeleton mxs-line" style="width:40%;margin-top:12px"></div>'
-            + '<div class="mxs-btns"><div class="skeleton mxs-pill"></div><div class="skeleton mxs-pill"></div></div>'
-            + '<div class="skeleton mxs-line" style="width:100%"></div><div class="skeleton mxs-line" style="width:94%"></div><div class="skeleton mxs-line" style="width:70%"></div></div></div>';
+        el('movie-details-content').innerHTML = '';
     } else if (r.browse) {
         showPage('category-movies-page', false, url);
-        el('category-movies-grid').innerHTML = cards(12);
+        el('category-movies-grid').innerHTML = '';
     } else if (r.page === 'search-page') {
         showPage('search-page', false, url);
         el('search-input').value = r.q || '';
         el('search-home').classList.add('hidden');
         el('search-view').classList.remove('hidden');
         el('sr-tabs').innerHTML = '';
-        el('search-results').innerHTML = Array.from({ length: 6 }, () => '<div class="mxs-row"><div class="skeleton mxs-thumb"></div><div style="flex:1"><div class="skeleton mxs-line" style="width:70%"></div><div class="skeleton mxs-line" style="width:40%"></div></div></div>').join('');
+        el('search-results').innerHTML = '';
     }
 };
 
-// The loader / refresh skeleton leaves only when what is under it is ready (movie list + hero banners on Home).
+// Marks the initial data as ready (movie list + hero banners on Home); there is no splash to hide any more.
 window.mxReady = () => {
     if (window.__mxReadyDone) return;
     window.__mxReadyDone = true;
-    const quick = initialLoader.classList.contains('quiet');
     initialLoader.style.opacity = '0'; initialLoader.style.pointerEvents = 'none';
-    setTimeout(() => { initialLoader.style.display = 'none'; }, quick ? 260 : 500);
+    setTimeout(() => { initialLoader.style.display = 'none'; }, 500);
 };
 window.mxTryReady = () => {
     const home = document.getElementById('home-page');

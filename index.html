@@ -45,37 +45,26 @@
     <link rel="stylesheet" href="assets/css/user/movie-page.css">
     <link rel="stylesheet" href="assets/css/user/explore.css">
     <link rel="stylesheet" href="assets/css/user/profile.css">
-    <link rel="stylesheet" href="assets/css/user/skeleton.css">
+    <!-- App shell: painted by the browser at once (no JS, no network), so a returning user never sees a blank page -->
+    <style>
+        #mx-shell{display:none}
+        html.mx-shell-on #mx-shell{display:block;position:fixed;inset:0;z-index:40;background:var(--bg,#141414);pointer-events:none}
+        #mx-shell .mxh{position:absolute;top:0;left:0;right:0;height:56px;display:flex;align-items:center;padding:0 16px;background:linear-gradient(to bottom,rgba(0,0,0,.85),transparent)}
+        #mx-shell .mxh span{color:var(--nf,#e50914);font-weight:900;font-size:26px;letter-spacing:.02em;text-transform:uppercase;line-height:1;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Roboto,'Helvetica Neue',Arial,sans-serif}
+        #mx-shell .mxn{position:absolute;left:0;right:0;bottom:0;height:80px;display:flex;justify-content:space-around;align-items:center;background:rgba(0,0,0,.9);color:#9ca3af;font:12px Roboto,Arial,sans-serif}
+        #mx-shell .mxn b{font-weight:400;color:#fff}
+    </style>
+    <script>
+        // returning, logged-in user -> show the shell until the real app is ready
+        try { if (localStorage.getItem('mx_li') === '1') document.documentElement.className += ' mx-shell-on'; } catch (e) {}
+    </script>
 </head>
 <body class="bg-slate-900 text-white font-sans">
+    <div id="mx-shell" aria-hidden="true"><div class="mxh"><span id="mx-shell-name">MoveX</span></div><div class="mxn"><b>Home</b><span>My List</span><span>Profile</span></div></div>
+    <script>try { document.getElementById('mx-shell-name').textContent = localStorage.getItem('movex_app_name') || 'MoveX'; } catch (e) {}</script>
     <div data-include="partials/custom-modal.html"></div>
-    <!-- INITIAL LOADER -->
-    <div id="initial-loader" class="splash-screen">
-        <!-- Dynamic Liquid Glass Background Effect -->
-        <div class="splash-glass-blob blob-1"></div>
-        <div class="splash-glass-blob blob-2"></div>
-        <div class="splash-glass-overlay"></div>
-        
-        <div class="splash-content relative z-10">
-            <div class="splash-logo-container" id="splash-logo-box">
-                <span id="splash-logo-text"></span>
-                <img id="splash-logo-img" src="" alt="Logo">
-            </div>
-            <h1 class="splash-title" id="splash-title-text"></h1>
-            <p class="splash-subtitle">Anime, Series & Movies</p>
-            
-            <div class="splash-loader">
-                <div class="dot"></div>
-                <div class="dot"></div>
-                <div class="dot"></div>
-            </div>
-        </div>
-
-        <div class="splash-footer">
-            <p>POWERED BY</p>
-            <h4 id="splash-footer-text"></h4>
-        </div>
-    </div>
+    <!-- No intro / splash screen: kept only as a hidden element for the scripts that still reference it -->
+    <div id="initial-loader" style="display:none"></div>
 
     <!-- ZERO DELAY DOM SCRIPT: Executes instantly -->
     <script src="assets/js/user/core/splash-boot.js"></script>

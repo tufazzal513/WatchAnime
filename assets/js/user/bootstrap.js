@@ -52,6 +52,7 @@
     console.error(err);
     var loader = document.getElementById('initial-loader');
     if (loader) {
+      loader.style.display = 'block';
       loader.textContent = 'Failed to start: ' + err.message + ' (open it through a web server, not file://)';
       loader.style.color = '#f87171'; loader.style.padding = '24px'; loader.style.textAlign = 'center';
     }
