@@ -135,9 +135,32 @@ window.showMovieDetails = (movieId, push = true, opts) => {
         }
     }
     const cover = movie.coverUrl || movie.posterUrl || '';
-    const similar = Object.entries(allMovies).filter(([id, m]) => id !== movieId && mxReleased(m))
-        .map(([id, m]) => { const mg = MX.genresOf(movie), ml = MX.langsOf(movie); return [id, m, MX.genresOf(m).filter(g => mg.includes(g)).length * 3 + (m.industry && m.industry === movie.industry ? 2 : 0) + MX.langsOf(m).filter(l => ml.includes(l)).length + (MX.typeOf(m) === MX.typeOf(movie) ? 1 : 0)]; })
-        .sort((a, b) => b[2] - a[2]).slice(0, 30);
+    // Personalised For You: relevance first, then catalog popularity and freshness.
+    // Keep the rail intentionally short (maximum 12) instead of flooding the player page.
+    const baseGenres = MX.genresOf(movie).map(x => String(x).toLowerCase());
+    const baseLangs = MX.langsOf(movie).map(x => String(x).toLowerCase());
+    const baseType = MX.typeOf(movie);
+    const candidates = Object.entries(allMovies).filter(([id, m]) => id !== movieId && m && mxReleased(m));
+    const maxHot = Math.max(0.01, ...candidates.map(([id, m]) => mxHot(id, m)));
+    const scoredSimilar = candidates.map(([id, m]) => {
+        const genres = MX.genresOf(m).map(x => String(x).toLowerCase());
+        const langs = MX.langsOf(m).map(x => String(x).toLowerCase());
+        const genreMatch = baseGenres.length ? genres.filter(g => baseGenres.includes(g)).length / baseGenres.length : 0;
+        const langMatch = baseLangs.length ? langs.filter(l => baseLangs.includes(l)).length / baseLangs.length : 0;
+        const sameIndustry = !!movie.industry && String(movie.industry).toLowerCase() === String(m.industry || '').toLowerCase();
+        const sameType = String(MX.typeOf(m)).toLowerCase() === String(baseType).toLowerCase();
+        const sameContent = (m.contentType || 'movie') === (movie.contentType || 'movie');
+        const relevance = genreMatch * 0.55 + langMatch * 0.18 + (sameIndustry ? 0.12 : 0) + (sameType ? 0.08 : 0) + (sameContent ? 0.07 : 0);
+        const popularity = mxHot(id, m) / maxHot;
+        const score = relevance * 0.72 + popularity * 0.28;
+        return [id, m, score, relevance, popularity];
+    }).sort((a, b) => b[2] - a[2] || mxWhen(b[1]) - mxWhen(a[1]));
+    // Prefer genuinely related titles; if the catalog is small, fill remaining slots
+    // with the most popular titles from the same content type.
+    const related = scoredSimilar.filter(x => x[3] >= 0.12);
+    const fallback = scoredSimilar.filter(x => x[3] < 0.12);
+    const similarPicks = [...related, ...fallback].slice(0, 12);
+    const similar = similarPicks;
     const mvLangs = MX.langsOf(movie), mvGenres = MX.genresOf(movie);
     const meta = `<span class="mv-ico"><i class="fas ${isSeries ? 'fa-tv' : 'fa-film'}"></i></span>${movie.rating ? `<span><i class="fas fa-star" style="color:#facc15"></i> ${esc(movie.rating)}</span>` : ''}${movie.year ? `<span>${esc(movie.year)}</span>` : ''}<span>${esc(MX.typeOf(movie))}</span>${movie.industry ? `<span>${esc(movie.industry)}</span>` : ''}${mvLangs.length ? `<span>${esc(mvLangs.join(', '))}${movie.dubbed ? ' (Dubbed)' : ''}</span>` : ''}${mvGenres.length ? `<span>${esc(mvGenres.join(', '))}</span>` : ''}<span>${isSeries ? seasonKeys.length + (seasonKeys.length > 1 ? ' seasons' : ' season') : 'Movie'}</span>`;
 
