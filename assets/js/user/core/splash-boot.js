@@ -65,7 +65,7 @@
             const st = Object.assign({}, state, { d: rep ? (cur.d || 0) : (cur.d || 0) + 1 });
             try { if (rep) history.replaceState(st, '', url); else history.pushState(st, '', url); } catch (e) {}
         },
-        setTitle: (t) => { document.title = t ? t + ' - MoveX' : 'MoveX - Anime, Series & Movies'; },
+        setTitle: (t) => { document.title = t ? t + ' - WatchAnime' : 'WatchAnime - Watch Anime, Series & Movies Online'; },
         // old links (#/movie/<id>, #movie=<id>, #/search ...) -> real paths
         migrateLegacy: () => {
             const h = location.hash || ''; if (!h) return false;
