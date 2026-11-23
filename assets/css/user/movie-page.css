@@ -109,6 +109,8 @@ body.sheet-lock{overflow:hidden}
 .mv-eps-scroll>.mv-ep{flex:0 0 auto}
 .mv-ep{flex:none;min-width:50px;height:46px;border-radius:6px;background:#2a2a2a;color:#fff;font-weight:700;padding:0 14px}
 .mv-ep.all{background:#3a3a3a}.mv-ep.on{background:var(--nf)}
+.mv-foryou{font-size:20px;font-weight:700;padding:18px 16px 10px}
+.mv-side .nf-grid{padding:0 16px}
 .nf-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
 .nf-gcard{position:relative;cursor:pointer}
 .nf-gcard img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:4px;background:#222}
@@ -121,6 +123,13 @@ body.sheet-lock{overflow:hidden}
 .nf-hbtns{display:flex;gap:6px}
 .nf-plus{width:26px;height:26px;border-radius:50%;border:1.5px solid #aaa;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:10px;background:rgba(42,42,42,.8)}
 .nf-plus.on{background:#fff;color:#000;border-color:#fff}
+@media(min-width:1024px){
+  .mv-wrap{display:grid;grid-template-columns:minmax(0,1fr) 340px;grid-template-areas:"player side" "info side";column-gap:24px;align-content:start;max-width:1280px;margin:0 auto;padding:72px 24px 40px}
+  .pl-sticky{grid-area:player;position:static;border-radius:8px;overflow:hidden}
+  .mv-info{grid-area:info;padding:16px 0}.mv-side{grid-area:side}.mv-foryou{padding-top:0}
+  .mv-side .nf-grid{padding:0;grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(min-width:640px) and (max-width:1023px){.nf-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
 
 /* sheets */
 .mv-sheet{position:fixed;inset:0;z-index:200}
@@ -143,4 +152,11 @@ body.sheet-lock{overflow:hidden}
 .mv-share a:hover i,.mv-share button:hover i{background:var(--nf)}
 #mylist-page{background:var(--bg)}
 
+/* on desktop the top navigation hides while a title page is open (the Back arrow is on the player) */
+@media(min-width:768px){body:has(#movie-details-page.active) #main-nav{display:none}}
 
+/* For you (MovieBox style: tab-like header + poster grid) */
+.mv-tabs{display:flex;border-bottom:1px solid #2a2a2a;padding:0 16px;margin-top:8px}
+.mv-tabs span{font-size:20px;font-weight:700;padding:10px 0 8px;border-bottom:3px solid var(--nf,#e50914);color:#fff}
+.mv-side .mx-grid{padding:14px 16px 28px}
+@media(min-width:1024px){.mv-side .mv-tabs{padding:0}.mv-side .mx-grid{padding:14px 0 28px;grid-template-columns:repeat(2,minmax(0,1fr))}}

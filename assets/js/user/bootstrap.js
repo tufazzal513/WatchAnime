@@ -16,14 +16,12 @@
       "../shared/db-client.js",
       "../shared/taxonomy.js",
       "core/firebase-init.js",
-      "../mock/mock-data.js",          // TEST DATA: delete the folder assets/js/mock/ to remove it (this line may stay, it is optional)
       "core/app-details.js",
       "core/state.js",
       "core/ui-kit.js",
       "core/utils.js",
       "core/error-logger.js",
       "core/carousel-state.js",
-      "core/recommend.js",             // smart "Recommended for you" (player page)
       "core/presence.js",
       "core/user-record.js",
       "features/auth-forms.js",
@@ -41,8 +39,7 @@
       "core/modal.js",
       "pages/watch-player.js",
       "core/theme-engine.js",
-      "core/user-data.js",
-      "core/desktop-ui.js"             // desktop polish: row arrows, hero arrows, header avatar
+      "core/user-data.js"
   ];
 
   // download every script at the same time (they still RUN one by one, in order): much shorter blank time on slow networks
@@ -77,8 +74,7 @@
     return new Promise(function (resolve, reject) {
       var s = document.createElement('script');
       s.src = src; s.onload = resolve;
-      // files in /mock/ are optional: if the folder was deleted the site simply starts without them
-      s.onerror = function () { if (src.indexOf('/mock/') > -1) resolve(); else reject(new Error('Cannot load ' + src)); };
+      s.onerror = function () { reject(new Error('Cannot load ' + src)); };
       document.body.appendChild(s);
     });
   }
