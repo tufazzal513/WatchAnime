@@ -89,12 +89,43 @@ const plFastEnd = () => { if (!PL._lp) return; PL._lp = false; plFast(false); pl
 
 // ---------- sheets (More Info / Share / All episodes) ----------
 window.closeSheet = () => { const s = $id('mv-sheet'); if (s) s.remove(); mxScrollLock(false); };
-const openSheet = (title, html) => {
-    closeSheet();
-    const d = document.createElement('div'); d.id = 'mv-sheet'; d.className = 'mv-sheet';
-    d.innerHTML = `<div class="mv-sheet-bg" onclick="closeSheet()"></div><div class="mv-sheet-box"><div class="mv-sheet-h"><b>${esc(title)}</b><button onclick="closeSheet()" aria-label="Close"><i class="fas fa-times"></i></button></div><div class="mv-sheet-b">${html}</div></div>`;
-    document.body.appendChild(d); mxScrollLock(true);
+// On phones / tablets (< 1024px) the Info and Episodes panels DOCK under the player instead of covering the whole screen:
+// the video stays visible and keeps playing at the top (like the MovieBox app), only the area below it is replaced by the panel.
+// On laptops / desktops the details are shown inline on the page, so no overlay is needed at all.
+const DOCK_MAX = 1023;
+const dockable = () => window.innerWidth <= DOCK_MAX && !!$id('pl-sticky') && !!document.querySelector('#movie-details-page.active');
+const placeDock = () => {
+    const s = $id('mv-sheet'), p = $id('pl-sticky'); if (!s || !p || !s.classList.contains('dock')) return;
+    const r = p.getBoundingClientRect();
+    s.style.setProperty('--dock-top', Math.max(0, Math.round(r.bottom)) + 'px');
+    s.style.setProperty('--dock-left', Math.max(0, Math.round(r.left)) + 'px');
+    s.style.setProperty('--dock-w', Math.round(r.width) + 'px');
 };
+if (!window.__mvDockBound) {
+    window.__mvDockBound = true;
+    window.addEventListener('resize', () => { const s = $id('mv-sheet'); if (!s || !s.classList.contains('dock')) return; if (window.innerWidth > DOCK_MAX) closeSheet(); else placeDock(); });
+}
+const openSheet = (title, html, o) => {
+    closeSheet();
+    const dock = !!(o && o.dock) && dockable();
+    const d = document.createElement('div'); d.id = 'mv-sheet'; d.className = 'mv-sheet' + (dock ? ' dock' : '');
+    d.innerHTML = `${dock ? '' : '<div class="mv-sheet-bg" onclick="closeSheet()"></div>'}<div class="mv-sheet-box"><div class="mv-sheet-h"><b>${esc(title)}</b><button onclick="closeSheet()" aria-label="Close"><i class="fas fa-times"></i></button></div><div class="mv-sheet-b">${html}</div></div>`;
+    document.body.appendChild(d);
+    if (!dock) mxScrollLock(true);   // docked panel scrolls by itself; locking the page would push the player out of view
+    if (dock) { placeDock(); requestAnimationFrame(placeDock); setTimeout(placeDock, 400); }
+};
+// shared by the docked Info panel and the inline "About" card
+const mvRows = (m) => {
+    const langs = MX.langsOf(m);
+    return [['Type', MX.typeOf(m)], ['Industry / Country', m.industry], ['Language', langs.length ? langs.join(', ') + (m.dubbed ? ' (Dubbed)' : '') : ''],
+        ['Genres', MX.genresOf(m).join(', ')], ['Rating', MX.rating(m)], ['Year', m.year], ['Seasons', m.contentType === 'series' && m.seasons ? Object.keys(m.seasons).length : '']].filter(r => r[1]);
+};
+const mvCast = (m) => String(m.cast || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean);
+const mvRecCard = (r) => `
+    <div class="rec-card" role="button" tabindex="0" onclick="showMovieDetails('${r.id}')" onkeydown="if(event.key==='Enter')showMovieDetails('${r.id}')">
+        <div class="rec-p" ${mxT(r.m)}>${mxImg(r.m)}${mxBadges(r.m)}</div>
+        <div class="rec-i"><p class="rec-t">${esc(r.m.title)}</p>${mxMeta(r.m, false)}<p class="rec-why"><i class="fas ${r.icon}"></i> ${esc(r.why)}</p></div>
+    </div>`;
 
 // ---------- details page ----------
 window.showMovieDetails = (movieId, push = true, opts) => {
@@ -135,38 +166,18 @@ window.showMovieDetails = (movieId, push = true, opts) => {
         }
     }
     const cover = movie.coverUrl || movie.posterUrl || '';
-    // Personalised For You: relevance first, then catalog popularity and freshness.
-    // Keep the rail intentionally short (maximum 12) instead of flooding the player page.
-    const baseGenres = MX.genresOf(movie).map(x => String(x).toLowerCase());
-    const baseLangs = MX.langsOf(movie).map(x => String(x).toLowerCase());
-    const baseType = MX.typeOf(movie);
-    const candidates = Object.entries(allMovies).filter(([id, m]) => id !== movieId && m && mxReleased(m));
-    const maxHot = Math.max(0.01, ...candidates.map(([id, m]) => mxHot(id, m)));
-    const scoredSimilar = candidates.map(([id, m]) => {
-        const genres = MX.genresOf(m).map(x => String(x).toLowerCase());
-        const langs = MX.langsOf(m).map(x => String(x).toLowerCase());
-        const genreMatch = baseGenres.length ? genres.filter(g => baseGenres.includes(g)).length / baseGenres.length : 0;
-        const langMatch = baseLangs.length ? langs.filter(l => baseLangs.includes(l)).length / baseLangs.length : 0;
-        const sameIndustry = !!movie.industry && String(movie.industry).toLowerCase() === String(m.industry || '').toLowerCase();
-        const sameType = String(MX.typeOf(m)).toLowerCase() === String(baseType).toLowerCase();
-        const sameContent = (m.contentType || 'movie') === (movie.contentType || 'movie');
-        const relevance = genreMatch * 0.55 + langMatch * 0.18 + (sameIndustry ? 0.12 : 0) + (sameType ? 0.08 : 0) + (sameContent ? 0.07 : 0);
-        const popularity = mxHot(id, m) / maxHot;
-        const score = relevance * 0.72 + popularity * 0.28;
-        return [id, m, score, relevance, popularity];
-    }).sort((a, b) => b[2] - a[2] || mxWhen(b[1]) - mxWhen(a[1]));
-    // Prefer genuinely related titles; if the catalog is small, fill remaining slots
-    // with the most popular titles from the same content type.
-    const related = scoredSimilar.filter(x => x[3] >= 0.12);
-    const fallback = scoredSimilar.filter(x => x[3] < 0.12);
-    const similarPicks = [...related, ...fallback].slice(0, 12);
-    const similar = similarPicks;
+    // "Recommended for you": 12 titles that are similar to this one, popular, and fit this user's taste (see core/recommend.js)
+    const similar = typeof mxRecommend === 'function' ? mxRecommend(movieId, 12) : [];
     const mvLangs = MX.langsOf(movie), mvGenres = MX.genresOf(movie);
-    const meta = `<span class="mv-ico"><i class="fas ${isSeries ? 'fa-tv' : 'fa-film'}"></i></span>${movie.rating ? `<span><i class="fas fa-star" style="color:#facc15"></i> ${esc(movie.rating)}</span>` : ''}${movie.year ? `<span>${esc(movie.year)}</span>` : ''}<span>${esc(MX.typeOf(movie))}</span>${movie.industry ? `<span>${esc(movie.industry)}</span>` : ''}${mvLangs.length ? `<span>${esc(mvLangs.join(', '))}${movie.dubbed ? ' (Dubbed)' : ''}</span>` : ''}${mvGenres.length ? `<span>${esc(mvGenres.join(', '))}</span>` : ''}<span>${isSeries ? seasonKeys.length + (seasonKeys.length > 1 ? ' seasons' : ' season') : 'Movie'}</span>`;
+    const chip = (cls, html) => `<span class="mv-chip ${cls}">${html}</span>`;
+    const meta = (MX.rating(movie) ? chip('rate', `<i class="fas fa-star"></i> ${esc(MX.rating(movie))}`) : '') + (movie.year ? chip('', esc(movie.year)) : '') + chip('', `<i class="fas ${isSeries ? 'fa-tv' : 'fa-film'}"></i> ${esc(MX.typeOf(movie))}`) + (movie.industry ? chip('', esc(movie.industry)) : '') + (mvLangs.length ? chip('', esc(mvLangs.join(', ')) + (movie.dubbed ? ' · Dubbed' : '')) : '') + (isSeries ? chip('', seasonKeys.length + (seasonKeys.length > 1 ? ' seasons' : ' season')) : '');
+    const genreChips = mvGenres.slice(0, 6).map(g => `<span class="mv-genre">${esc(g)}</span>`).join('');
+    const castChips = mvCast(movie).slice(0, 12).map(c => `<span class="mv-cast-i">${esc(c)}</span>`).join('');
+    const aboutRows = mvRows(movie).map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
 
     $id('movie-details-content').innerHTML = `
     <div class="mv-wrap">
-      <div class="pl-sticky"><div class="pl" id="pl" data-ui="1">
+      <div class="pl-sticky" id="pl-sticky"><div class="pl" id="pl" data-ui="1">
         <div class="pl-bg"><img class="pl-blur" src="${esc(movie.posterUrl)}" alt=""><img class="pl-cover" src="${esc(cover)}" alt=""></div>
         <video id="pl-video" playsinline webkit-playsinline preload="metadata"></video>
         <div id="pl-embed"></div>
@@ -204,21 +215,31 @@ window.showMovieDetails = (movieId, push = true, opts) => {
       </div></div>
 
       <div class="mv-info">
-        <div class="mv-trow"><h1 class="mv-title">${esc(movie.title)}</h1><button class="mv-infob" onclick="openMoreInfo()">Info <i class="fas fa-chevron-right"></i></button></div>
+        <div class="mv-trow"><h1 class="mv-title">${esc(movie.title)}</h1><button class="mv-infob" onclick="openMoreInfo()" aria-label="More details"><i class="fas fa-info-circle"></i><span>Info</span><i class="fas fa-chevron-right"></i></button></div>
         <div class="mv-meta">${meta}</div>
+        ${genreChips ? `<div class="mv-genres">${genreChips}</div>` : ''}
         <div class="mv-pills no-scrollbar">
           <button class="mv-pill" data-mylist="${movieId}" onclick="toggleMyList('${movieId}')"><i class="fas fa-plus"></i> <span class="lbl">Add to list</span></button>
           <button class="mv-pill" onclick="openShare()"><i class="fas fa-share-alt"></i> Share</button>
         </div>
-        ${isSeries ? `<div class="mv-res"><h3>Resources</h3>
-          <div class="mv-sel">${seasonKeys.length ? `<select id="mv-season" onchange="selectSeason(this.value)">${seasonKeys.map(k => `<option value="${esc(k)}" ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}</div>
+        ${isSeries ? `<div class="mv-res"><div class="mv-res-h"><h3>Episodes</h3>
+          <div class="mv-sel">${seasonKeys.length ? `<select id="mv-season" onchange="selectSeason(this.value)" aria-label="Season">${seasonKeys.map(k => `<option value="${esc(k)}" ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}</div></div>
           <div class="mv-eps" id="mv-eps"></div></div>` : ''}
+        <section class="mv-about" id="mv-about">
+          <h3>About</h3>
+          <p class="mv-desc clamp" id="mv-desc">${esc(movie.description || 'No description available for this title.')}</p>
+          <button class="mv-more" id="mv-more" type="button" onclick="toggleAbout()">Show more</button>
+          ${aboutRows ? `<dl class="mv-dl">${aboutRows}</dl>` : ''}
+          ${castChips ? `<h4>Starring</h4><div class="mv-castl">${castChips}</div>` : ''}
+        </section>
       </div>
 
-      <div class="mv-side"><div class="mv-tabs"><span>For you</span></div>
-        <div class="mx-grid">${similar.map(([id, m]) => mxGridCard(id, m)).join('') || '<p class="nf-empty">Nothing to show yet.</p>'}</div>
-      </div>
+      <aside class="mv-side" aria-label="Recommended titles">
+        <div class="mv-sidehead"><h2>Recommended for you</h2><p>Similar to <b>${esc(movie.title)}</b>, popular with viewers</p></div>
+        <div class="rec-list">${similar.map(mvRecCard).join('') || '<p class="nf-empty">Nothing to show yet.</p>'}</div>
+      </aside>
     </div>`;
+    { const d = $id('mv-desc'), b = $id('mv-more'); if (d && b) requestAnimationFrame(() => { if (d.scrollHeight <= d.clientHeight + 2) b.style.display = 'none'; }); }
 
     pages.forEach(p => p.classList.toggle('active', p.id === 'movie-details-page'));
     navBtns.forEach(b => { b.classList.remove('text-blue-500'); b.classList.add('text-gray-400'); });
@@ -256,7 +277,7 @@ const renderEpRow = () => {
 window.openAllEps = () => {
     const movie = allMovies[currentMovieId]; if (isLocked(movie)) return plToast('Coming soon'); const keys = Object.keys(movie.seasons || {});
     const grid = () => (movie.seasons[currentSeasonKey] || []).map((e, i) => `<button class="mv-ep ${i === currentEpIndex ? 'on' : ''}" onclick="closeSheet();playEpisode(${i})">${String(i + 1).padStart(2, '0')}</button>`).join('');
-    openSheet('Episodes', `${keys.length > 1 ? `<select class="mv-sheet-sel" onchange="selectSeason(this.value);document.getElementById('mv-sheet-grid').innerHTML=window.__epGrid()">${keys.map(k => `<option ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}<div class="mv-sheet-grid" id="mv-sheet-grid">${grid()}</div>`);
+    openSheet('Episodes', `${keys.length > 1 ? `<select class="mv-sheet-sel" onchange="selectSeason(this.value);document.getElementById('mv-sheet-grid').innerHTML=window.__epGrid()">${keys.map(k => `<option ${k === currentSeasonKey ? 'selected' : ''}>${esc(k)}</option>`).join('')}</select>` : ''}<div class="mv-sheet-grid" id="mv-sheet-grid">${grid()}</div>`, { dock: true });
     window.__epGrid = grid;
 };
 // Episode list that opens INSIDE the player, so fullscreen stays on.
@@ -286,10 +307,37 @@ window.plNextEp = () => { if (currentEpIndex + 1 < epList().length) playEpisode(
 window.plPrevEp = () => { if (currentEpIndex > 0) playEpisode(currentEpIndex - 1); };
 
 // ---------- More Info / Share ----------
+window.toggleAbout = () => {
+    const d = $id('mv-desc'), b = $id('mv-more'); if (!d || !b) return;
+    const open = d.classList.toggle('clamp') === false;
+    b.textContent = open ? 'Show less' : 'Show more';
+};
 window.openMoreInfo = () => {
     const m = allMovies[currentMovieId]; if (!m) return;
-    const row = (k, v) => v ? `<div class="mv-kv"><span>${k}</span><b>${esc(v)}</b></div>` : '';
-    openSheet('Info', `<h2 class="mv-sheet-t">${esc(m.title)}</h2>${row('Type', MX.typeOf(m))}${row('Industry / Country', m.industry)}${row('Language', MX.langsOf(m).join(', ') + (m.dubbed && MX.langsOf(m).length ? ' (Dubbed)' : ''))}${row('Genres', MX.genresOf(m).join(', '))}${row('Rating', m.rating)}${row('Year', m.year)}${m.contentType === 'series' && m.seasons ? row('Seasons', Object.keys(m.seasons).length) : ''}${row('Cast', m.cast)}<p class="mv-desc">${esc(m.description || 'No description available for this title.')}</p>`);
+    // laptop / desktop: the details are already on the page (About card), just bring them into view
+    if (window.innerWidth > DOCK_MAX) {
+        const a = $id('mv-about'), d = $id('mv-desc');
+        if (!a) return;
+        if (d && d.classList.contains('clamp')) toggleAbout();
+        a.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        a.classList.remove('flash'); void a.offsetWidth; a.classList.add('flash');
+        return;
+    }
+    // phone / tablet: panel docked UNDER the player, the video above stays visible and keeps playing
+    const isSeries = m.contentType === 'series' && m.seasons;
+    const meta = [MX.rating(m) ? `<span class="rate"><i class="fas fa-star"></i> ${esc(MX.rating(m))}</span>` : '', m.year ? `<span>${esc(m.year)}</span>` : '', m.industry ? `<span>${esc(m.industry)}</span>` : '', `<span>${esc(MX.typeOf(m))}</span>`].filter(Boolean).join('');
+    const seasons = isSeries ? Object.keys(m.seasons).length : 0;
+    const cast = mvCast(m);
+    openSheet('More details', `
+        <div class="dt-head">
+            <div class="dt-poster" ${mxT(m)}>${mxImg(m)}</div>
+            <div class="dt-main"><h2 class="dt-title">${esc(m.title)}</h2><div class="dt-meta">${meta}</div>${seasons ? `<p class="dt-sub">${seasons} season${seasons > 1 ? 's' : ''}</p>` : ''}</div>
+        </div>
+        <h3 class="dt-h">Info</h3>
+        <p class="mv-desc">${esc(m.description || 'No description available for this title.')}</p>
+        <h3 class="dt-h">Details</h3>
+        <div class="dt-rows">${mvRows(m).map(([k, v]) => `<div class="mv-kv"><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join('')}</div>
+        ${cast.length ? `<h3 class="dt-h">Starring (${cast.length})</h3><div class="mv-castl">${cast.map(c => `<span class="mv-cast-i">${esc(c)}</span>`).join('')}</div>` : ''}`, { dock: true });
 };
 const shareUrl = () => location.origin + MXR.movieUrl(currentMovieId, (allMovies[currentMovieId] || {}).title);
 window.openShare = () => {
